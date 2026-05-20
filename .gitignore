@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+backend/.venv/
+.venv/
+venv/
+ENV/
+
+# Secrets and local config
+backend/.env
+.env
+.env.local
+*.pem
+*.key
+
+# Generated runtime artifacts
+audio/*
+!audio/.gitkeep
+backend/audio/*
+!backend/audio/.gitkeep
+
+# Piper binary distribution (download separately; not part of this repo)
+piper/
+
+# Piper voice models (download separately; not part of this repo)
+piper_models/*
+!piper_models/.gitkeep
+!piper_models/README.md
+
+# RAG vector index (built on startup or via scripts/build_rag_index.py)
+data/rag_index/*
+!data/rag_index/.gitkeep
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log

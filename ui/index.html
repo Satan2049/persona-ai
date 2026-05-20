@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="blue">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Smart Avatar</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="fileProtocolBanner" class="file-protocol-banner hidden" role="status">
+      Open this page over HTTP (e.g. backend at <code>http://127.0.0.1:8000</code> or
+      <code>python -m http.server 5173 --directory ui</code>) so API calls work.
+    </div>
+
+    <div class="top-bar-stack">
+      <header class="top-bar glass">
+        <div class="top-bar-brand">
+          <span class="top-bar-logo" aria-hidden="true"></span>
+          <div>
+            <div class="top-bar-title">Smart Avatar</div>
+            <div class="top-bar-sub muted" id="sessionLine">Session …</div>
+          </div>
+        </div>
+        <div class="top-bar-actions">
+          <label class="toolbar-field">
+            <span>Theme</span>
+            <select id="themeSelect" class="toolbar-select" aria-label="Color theme"></select>
+          </label>
+          <label class="toolbar-field">
+            <span>Language</span>
+            <select id="localeSelect" class="toolbar-select" aria-label="Chat language">
+              <option value="fa">فارسی</option>
+              <option value="en">English</option>
+            </select>
+          </label>
+          <label class="toolbar-field">
+            <span>Voice</span>
+            <select id="voiceSelect" class="toolbar-select" aria-label="Piper voice"></select>
+          </label>
+          <label class="toolbar-field">
+            <span id="speedFieldLabel">Speech speed</span>
+            <select id="speedSelect" class="toolbar-select" aria-label="Speaking speed">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+            </select>
+          </label>
+          <button type="button" class="btn-secondary" id="btnHealth" title="Refresh status">↻ Status</button>
+          <button type="button" class="btn-secondary" id="btnClear" title="Clear conversation">Clear chat</button>
+          <button type="button" class="btn-secondary" id="btnSettings" aria-expanded="false" aria-controls="settingsPanel">
+            Settings
+          </button>
+        </div>
+      </header>
+
+      <div class="voice-toolbar glass">
+        <label class="toolbar-field voice-search-field">
+          <span id="voiceSearchLabel">Search voices</span>
+          <input
+            type="search"
+            id="voiceFilterInput"
+            class="voice-filter-input"
+            placeholder="Filter by name…"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </label>
+        <div class="toolbar-field voice-age-filter-field">
+          <span id="voiceAgeFilterLabel">Voice age</span>
+          <div class="segmented" id="voiceAgeFilter" role="group" aria-label="Filter voices by age profile">
+            <button type="button" class="seg-btn" data-voice-age="child">Child</button>
+            <button type="button" class="seg-btn is-selected" data-voice-age="young">Young</button>
+            <button type="button" class="seg-btn" data-voice-age="old">Old</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="settingsPanel" class="settings-panel glass hidden" role="region" aria-label="Connection settings">
+      <div class="settings-grid">
+        <label class="field">
+          <span>API base URL</span>
+          <input type="url" id="apiBaseInput" placeholder="http://127.0.0.1:8000" autocomplete="off" />
+        </label>
+        <p class="settings-hint muted">
+          When you open the UI from the backend (<code>/</code> on port 8000), leave this empty to use the same
+          origin. For a separate static server, set this to your FastAPI URL.
+        </p>
+        <div class="settings-buttons">
+          <button type="button" class="btn-primary" id="btnSaveApi">Save &amp; reconnect</button>
+          <button type="button" class="btn-secondary" id="btnResetApi">Use defaults</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="app-shell">
+      <aside class="left-panel glass">
+        <div class="panel-header">
+          <h1>Avatar</h1>
+          <span class="badge" id="modeBadge">Offline</span>
+        </div>
+        <div class="avatar-stage">
+          <div class="avatar-face" id="avatarFace" data-age="young">
+            <div class="avatar-head" aria-hidden="true">
+              <div class="avatar-ear avatar-ear-left"></div>
+              <div class="avatar-ear avatar-ear-right"></div>
+              <div class="avatar-age-detail" aria-hidden="true">
+                <span class="avatar-line avatar-line-forehead"></span>
+                <span class="avatar-line avatar-line-crow-left"></span>
+                <span class="avatar-line avatar-line-crow-right"></span>
+                <span class="avatar-line avatar-line-nasolabial-left"></span>
+                <span class="avatar-line avatar-line-nasolabial-right"></span>
+              </div>
+              <div class="avatar-brow avatar-brow-left"></div>
+              <div class="avatar-brow avatar-brow-right"></div>
+              <div class="eyes">
+                <span class="eye"
+                  ><span class="eye-lid"></span><span class="eye-sclera"></span
+                  ><span class="eye-iris"></span><i class="eye-shine"></i
+                ></span>
+                <span class="eye"
+                  ><span class="eye-lid"></span><span class="eye-sclera"></span
+                  ><span class="eye-iris"></span><i class="eye-shine"></i
+                ></span>
+              </div>
+              <div class="avatar-nose"></div>
+              <div class="avatar-cheek avatar-cheek-left"></div>
+              <div class="avatar-cheek avatar-cheek-right"></div>
+              <div class="mouth" id="avatarMouth">
+                <span class="mouth-upper" aria-hidden="true"></span>
+                <span class="mouth-inner" aria-hidden="true"></span>
+              </div>
+            </div>
+            <div class="avatar-neck" aria-hidden="true"></div>
+          </div>
+        </div>
+        <div class="avatar-controls glass">
+          <div class="toolbar-field">
+            <span id="faceAgeLabel">Portrait age</span>
+            <div class="segmented" id="faceAgeSegment" role="group" aria-label="Avatar face age">
+              <button type="button" class="seg-btn" data-face-age="child">Child</button>
+              <button type="button" class="seg-btn is-selected" data-face-age="young">Young</button>
+              <button type="button" class="seg-btn" data-face-age="old">Old</button>
+            </div>
+          </div>
+        </div>
+        <div class="metrics-card">
+          <div class="metrics-title muted">Last response</div>
+          <dl class="metrics-list" id="metricsBlock">
+            <div><dt>Model latency</dt><dd id="metricModel">—</dd></div>
+            <div><dt>TTS latency</dt><dd id="metricTts">—</dd></div>
+            <div><dt>Audio length</dt><dd id="metricAudio">—</dd></div>
+          </dl>
+        </div>
+        <div class="status-list">
+          <div class="status-item">
+            <span>Backend</span>
+            <strong id="modelStatus">Checking…</strong>
+          </div>
+          <div class="status-item">
+            <span>Voice</span>
+            <strong id="voiceStatus">…</strong>
+          </div>
+          <div class="status-item">
+            <span>Lip sync</span>
+            <strong id="lipSyncStatus">Ready</strong>
+          </div>
+        </div>
+      </aside>
+
+      <main class="chat-panel glass">
+        <header class="chat-header">
+          <div>
+            <h2>Psychology guide assistant</h2>
+            <p id="backendStatus" class="muted">Connecting…</p>
+          </div>
+          <span class="pill pill-muted" id="healthPill">…</span>
+        </header>
+
+        <div class="chat-scroll" id="chatScroll">
+          <section class="chat-history" id="chatHistory" aria-live="polite"></section>
+          <div id="typingRow" class="typing-row hidden" aria-hidden="true">
+            <span class="typing-dots"><span></span><span></span><span></span></span>
+            <span class="muted" id="typingLabel">…</span>
+          </div>
+        </div>
+
+        <form class="chat-input-row" id="chatForm">
+          <textarea id="userInput" rows="3" placeholder="Type your message… (Enter to send, Shift+Enter for newline)" required></textarea>
+          <div class="input-actions">
+            <button type="submit" id="btnSend" class="btn-primary">Send</button>
+          </div>
+        </form>
+      </main>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
