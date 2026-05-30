@@ -247,6 +247,25 @@ Copy from [backend/.env.example](backend/.env.example). **Do not commit** `backe
 - [docs/rag-system.md](docs/rag-system.md) — RAG design
 - [docs/intelligent-avatar-program.md](docs/intelligent-avatar-program.md) — program overview
 
+## GitHub Pages
+
+The root **[index.html](index.html)** is a static project landing page for GitHub Pages. The live avatar app still requires the local backend.
+
+### Publish at `https://USERNAME.github.io/` (user site)
+
+1. Create or rename the repository to **`USERNAME.github.io`** (replace `USERNAME` with your GitHub username).
+2. In **`index.html`**, set `GITHUB_USER` and `GITHUB_REPO` at the bottom of the script (`GITHUB_REPO` should be `USERNAME.github.io`).
+3. Push to GitHub. Open **Settings → Pages → Build and deployment**: source **Deploy from a branch**, branch **`main`**, folder **`/ (root)`**.
+4. After a minute, visit **https://USERNAME.github.io/**.
+
+### Publish from this repo (`persona-ai`)
+
+1. Leave `GITHUB_REPO = "persona-ai"` in **`index.html`** and set `GITHUB_USER`.
+2. Enable Pages on branch **`main`**, folder **`/ (root)`**.
+3. Site URL: **https://USERNAME.github.io/persona-ai/**
+
+The **`.nojekyll`** file at the repo root tells GitHub Pages not to run Jekyll, so static assets (including `ui/`) are served as-is.
+
 ## License
 
 MIT — see [LICENSE](LICENSE). Piper ([piper1-gpl](https://github.com/OHF-Voice/piper1-gpl)) and [piper-voices](https://huggingface.co/rhasspy/piper-voices) have their own licenses; check those projects before redistribution.
