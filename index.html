@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Persona AI — an offline-first psychologist-style avatar with lip-sync, Piper TTS, and FAQ-grounded guidance in Persian and English."
+    />
+    <title>Persona AI — Smart Psychologist Avatar</title>
+    <link rel="icon" href="ui/favicon.svg" type="image/svg+xml" />
+    <style>
+      :root {
+        --bg: #0a0f1f;
+        --bg-accent: #111933;
+        --bg-gradient-mid: #1c2d5f;
+        --text: #eaf0ff;
+        --muted: #97a3c6;
+        --primary: #6e8bff;
+        --primary-2: #38d3ff;
+        --glass: rgba(255, 255, 255, 0.07);
+        --border: rgba(255, 255, 255, 0.16);
+        --success: #5ee4a3;
+        --danger: #ff7b8a;
+        --radius: 16px;
+        --max: 1080px;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(1200px 600px at 10% -10%, rgba(110, 139, 255, 0.22), transparent 55%),
+          radial-gradient(900px 500px at 90% 0%, rgba(56, 211, 255, 0.14), transparent 50%),
+          linear-gradient(165deg, var(--bg) 0%, var(--bg-gradient-mid) 42%, var(--bg-accent) 100%);
+        line-height: 1.6;
+      }
+
+      a {
+        color: var(--primary-2);
+        text-decoration-thickness: 1px;
+        text-underline-offset: 3px;
+      }
+
+      a:hover {
+        color: #fff;
+      }
+
+      .wrap {
+        width: min(var(--max), calc(100% - 2rem));
+        margin-inline: auto;
+      }
+
+      header.site-header {
+        padding: 1.25rem 0 0.5rem;
+      }
+
+      .nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .brand img {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        box-shadow: 0 0 0 1px var(--border), 0 8px 24px rgba(0, 0, 0, 0.35);
+      }
+
+      .brand strong {
+        display: block;
+        font-size: 1.05rem;
+        letter-spacing: 0.02em;
+      }
+
+      .brand span {
+        display: block;
+        font-size: 0.82rem;
+        color: var(--muted);
+      }
+
+      .nav-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        padding: 0.62rem 1.05rem;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        font-size: 0.92rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+      }
+
+      .btn:hover {
+        transform: translateY(-1px);
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, var(--primary), var(--primary-2));
+        color: #061018;
+        border-color: transparent;
+      }
+
+      .btn-primary:hover {
+        color: #061018;
+        filter: brightness(1.06);
+      }
+
+      .btn-secondary {
+        background: var(--glass);
+        color: var(--text);
+        backdrop-filter: blur(10px);
+      }
+
+      .btn-secondary:hover {
+        color: #fff;
+        border-color: rgba(255, 255, 255, 0.28);
+      }
+
+      .hero {
+        padding: 3.5rem 0 2.5rem;
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+        gap: 2.5rem;
+        align-items: center;
+      }
+
+      @media (max-width: 860px) {
+        .hero {
+          grid-template-columns: 1fr;
+          padding-top: 2rem;
+        }
+      }
+
+      .eyebrow {
+        display: inline-block;
+        margin-bottom: 0.85rem;
+        padding: 0.28rem 0.75rem;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--glass);
+        color: var(--primary-2);
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0 0 1rem;
+        font-size: clamp(2rem, 4.5vw, 3.15rem);
+        line-height: 1.12;
+        letter-spacing: -0.03em;
+      }
+
+      .lead {
+        margin: 0 0 1.5rem;
+        font-size: 1.08rem;
+        color: var(--muted);
+        max-width: 38rem;
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+      }
+
+      .hero-note {
+        margin: 0;
+        font-size: 0.88rem;
+        color: var(--muted);
+      }
+
+      .hero-card {
+        padding: 1.35rem;
+        border-radius: calc(var(--radius) + 4px);
+        border: 1px solid var(--border);
+        background: linear-gradient(160deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
+        backdrop-filter: blur(14px);
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+      }
+
+      .hero-card h2 {
+        margin: 0 0 0.85rem;
+        font-size: 1rem;
+        font-weight: 700;
+      }
+
+      .stack-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 0.65rem;
+      }
+
+      .stack-list li {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.65rem;
+        font-size: 0.92rem;
+        color: var(--muted);
+      }
+
+      .stack-list li::before {
+        content: "";
+        flex: 0 0 8px;
+        height: 8px;
+        margin-top: 0.45rem;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--primary), var(--primary-2));
+      }
+
+      section {
+        padding: 2.5rem 0;
+      }
+
+      .section-title {
+        margin: 0 0 0.35rem;
+        font-size: 1.45rem;
+        letter-spacing: -0.02em;
+      }
+
+      .section-sub {
+        margin: 0 0 1.5rem;
+        color: var(--muted);
+        max-width: 42rem;
+      }
+
+      .grid-3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+      }
+
+      @media (max-width: 820px) {
+        .grid-3 {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .card {
+        padding: 1.25rem;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        background: var(--glass);
+        backdrop-filter: blur(10px);
+      }
+
+      .card h3 {
+        margin: 0 0 0.5rem;
+        font-size: 1rem;
+      }
+
+      .card p {
+        margin: 0;
+        font-size: 0.92rem;
+        color: var(--muted);
+      }
+
+      .steps {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .step {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 1rem;
+        align-items: start;
+        padding: 1.15rem 1.25rem;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .step-num {
+        width: 2rem;
+        height: 2rem;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--primary), var(--primary-2));
+        color: #061018;
+        font-weight: 800;
+        font-size: 0.9rem;
+      }
+
+      .step h3 {
+        margin: 0 0 0.35rem;
+        font-size: 1rem;
+      }
+
+      .step p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      .step code,
+      .callout code {
+        padding: 0.12rem 0.38rem;
+        border-radius: 6px;
+        background: rgba(0, 0, 0, 0.28);
+        border: 1px solid var(--border);
+        font-family: Consolas, "Courier New", monospace;
+        font-size: 0.84em;
+        color: #dce6ff;
+      }
+
+      .callout {
+        margin-top: 1.25rem;
+        padding: 1rem 1.15rem;
+        border-radius: var(--radius);
+        border: 1px solid rgba(94, 228, 163, 0.35);
+        background: rgba(94, 228, 163, 0.08);
+        font-size: 0.92rem;
+        color: #d7f5e8;
+      }
+
+      .callout-warn {
+        border-color: rgba(255, 123, 138, 0.35);
+        background: rgba(255, 123, 138, 0.08);
+        color: #ffe8ec;
+      }
+
+      .links-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+        margin-top: 1rem;
+      }
+
+      footer {
+        margin-top: 2rem;
+        padding: 2rem 0 2.5rem;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 0.86rem;
+      }
+
+      footer p {
+        margin: 0 0 0.65rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="site-header">
+        <nav class="nav" aria-label="Primary">
+          <a class="brand" href="#" id="brandLink">
+            <img src="ui/favicon.svg" width="44" height="44" alt="" aria-hidden="true" />
+            <span>
+              <strong>Persona AI</strong>
+              <span>Smart Psychologist Avatar</span>
+            </span>
+          </a>
+          <div class="nav-links">
+            <a class="btn btn-secondary" href="#features">Features</a>
+            <a class="btn btn-secondary" href="#setup">Setup</a>
+            <a class="btn btn-secondary" id="docsLink" href="#">Documentation</a>
+            <a class="btn btn-primary" id="githubLink" href="#" target="_blank" rel="noopener noreferrer">
+              View on GitHub
+            </a>
+          </div>
+        </nav>
+      </header>
+
+      <main>
+        <section class="hero">
+          <div>
+            <span class="eyebrow">Open source · Offline-first</span>
+            <h1>A supportive psychologist avatar with voice and lip-sync</h1>
+            <p class="lead">
+              Persona AI is a research demo: empathetic guidance in <strong>Persian</strong> and
+              <strong>English</strong>, powered by a local LLM, optional FAQ-grounded RAG, and
+              <a href="https://github.com/OHF-Voice/piper1-gpl" target="_blank" rel="noopener noreferrer">Piper</a>
+              text-to-speech — with a 2D avatar that speaks along.
+            </p>
+            <div class="hero-actions">
+              <a class="btn btn-primary" id="repoLink" href="#" target="_blank" rel="noopener noreferrer">
+                Clone &amp; run locally
+              </a>
+              <a class="btn btn-secondary" href="#setup">Installation guide</a>
+            </div>
+            <p class="hero-note">
+              The interactive chat runs on your machine via the FastAPI backend — this page is the project home on GitHub Pages.
+            </p>
+          </div>
+
+          <aside class="hero-card" aria-label="Tech stack">
+            <h2>Built with</h2>
+            <ul class="stack-list">
+              <li>FastAPI backend + bundled web UI</li>
+              <li>OpenAI-compatible chat &amp; embedding APIs</li>
+              <li>Piper TTS (piper1-gpl) — voices from Hugging Face</li>
+              <li>FAQ RAG over curated empathy prompts</li>
+              <li>Safety layer for high-risk content</li>
+            </ul>
+          </aside>
+        </section>
+
+        <section id="features">
+          <h2 class="section-title">Features</h2>
+          <p class="section-sub">Designed for thesis demos and local experimentation — not a replacement for professional care.</p>
+          <div class="grid-3">
+            <article class="card">
+              <h3>Bilingual guidance</h3>
+              <p>Locale-locked system prompts keep Persian and English replies consistent with the UI language.</p>
+            </article>
+            <article class="card">
+              <h3>Speaking avatar</h3>
+              <p>Offline Piper voices, WAV playback, and viseme timelines drive lip-sync on a lightweight 2D face.</p>
+            </article>
+            <article class="card">
+              <h3>Grounded &amp; safe</h3>
+              <p>Optional RAG over an FAQ dataset plus escalation paths with configurable emergency numbers.</p>
+            </article>
+          </div>
+        </section>
+
+        <section id="setup">
+          <h2 class="section-title">Run locally</h2>
+          <p class="section-sub">
+            GitHub Pages hosts this landing page only. To use the avatar, clone the repository, install dependencies, and start the backend on your computer.
+          </p>
+
+          <div class="steps">
+            <article class="step">
+              <div class="step-num" aria-hidden="true">1</div>
+              <div>
+                <h3>Clone the repository</h3>
+                <p>
+                  <code id="cloneCmd">git clone https://github.com/USERNAME/persona-ai.git</code>
+                </p>
+              </div>
+            </article>
+            <article class="step">
+              <div class="step-num" aria-hidden="true">2</div>
+              <div>
+                <h3>Configure backend &amp; Piper</h3>
+                <p>
+                  Copy <code>backend/.env.example</code> to <code>backend/.env</code>, set your LLM API, install
+                  <a href="https://github.com/OHF-Voice/piper1-gpl" target="_blank" rel="noopener noreferrer">Piper</a>,
+                  and download voice models into <code>piper_models/</code>. Full steps are in the README.
+                </p>
+              </div>
+            </article>
+            <article class="step">
+              <div class="step-num" aria-hidden="true">3</div>
+              <div>
+                <h3>Start the server</h3>
+                <p>
+                  On Windows, run <code>backend\run.bat</code>. Then open
+                  <code>http://127.0.0.1:8000/</code> for the full avatar UI.
+                </p>
+              </div>
+            </article>
+          </div>
+
+          <div class="callout">
+            <strong>GitHub Pages URL:</strong>
+            <span id="pagesNote">
+              To publish at <code>https://USERNAME.github.io/</code>, use a repository named
+              <code>USERNAME.github.io</code> with this <code>index.html</code> at the root, or enable Pages on this repo
+              (site will be at <code>https://USERNAME.github.io/persona-ai/</code>).
+            </span>
+          </div>
+
+          <div class="callout callout-warn">
+            <strong>Disclaimer:</strong> Persona AI is a demo assistant. It does not diagnose or provide medical treatment.
+            Always seek qualified human help in a crisis.
+          </div>
+
+          <div class="links-row">
+            <a class="btn btn-secondary" id="readmeLink" href="#" target="_blank" rel="noopener noreferrer">README</a>
+            <a class="btn btn-secondary" id="piperLink" href="https://github.com/OHF-Voice/piper1-gpl" target="_blank" rel="noopener noreferrer">Piper (piper1-gpl)</a>
+            <a class="btn btn-secondary" href="https://huggingface.co/rhasspy/piper-voices" target="_blank" rel="noopener noreferrer">Voice models</a>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <p>MIT License · Persona AI contributors</p>
+        <p>
+          Replace <code>USERNAME</code> in this page with your GitHub username before publishing, or edit
+          <code>GITHUB_USER</code> in the script below.
+        </p>
+      </footer>
+    </div>
+
+    <script>
+      (function () {
+        /** @type {string} Set your GitHub username here before deploying. */
+        const GITHUB_USER = "USERNAME";
+        /** @type {string} Repository name (use GITHUB_USER + ".github.io" for a user site at root URL). */
+        const GITHUB_REPO = "persona-ai";
+
+        const isUserSite = GITHUB_REPO === GITHUB_USER + ".github.io";
+        const pagesRoot = isUserSite ? "/" : "/" + GITHUB_REPO + "/";
+        const repoUrl = "https://github.com/" + GITHUB_USER + "/" + GITHUB_REPO;
+        const readmeUrl = repoUrl + "#readme";
+
+        function abs(path) {
+          if (path.startsWith("http") || path.startsWith("#")) return path;
+          return pagesRoot + path.replace(/^\//, "");
+        }
+
+        document.getElementById("githubLink").href = repoUrl;
+        document.getElementById("repoLink").href = repoUrl;
+        document.getElementById("docsLink").href = readmeUrl;
+        document.getElementById("readmeLink").href = readmeUrl;
+        document.getElementById("brandLink").href = pagesRoot;
+        document.getElementById("cloneCmd").textContent =
+          "git clone https://github.com/" + GITHUB_USER + "/" + GITHUB_REPO + ".git";
+
+        var favicon = document.querySelector('link[rel="icon"]');
+        if (favicon) favicon.href = abs("ui/favicon.svg");
+        var brandImg = document.querySelector(".brand img");
+        if (brandImg) brandImg.src = abs("ui/favicon.svg");
+
+        var note = document.getElementById("pagesNote");
+        if (isUserSite) {
+          note.innerHTML =
+            "This repo is configured as a user site. After enabling GitHub Pages (branch <code>main</code>, folder <code>/ (root)</code>), it will be live at <code>https://" +
+            GITHUB_USER +
+            ".github.io/</code>.";
+        } else {
+          note.innerHTML =
+            "Enable GitHub Pages on branch <code>main</code>, folder <code>/ (root)</code>. Your site URL will be <code>https://" +
+            GITHUB_USER +
+            ".github.io/" +
+            GITHUB_REPO +
+            "/</code>. For <code>https://" +
+            GITHUB_USER +
+            ".github.io/</code> without a path, rename the repo to <code>" +
+            GITHUB_USER +
+            ".github.io</code> and set <code>GITHUB_REPO</code> in this file to match.";
+        }
+      })();
+    </script>
+  </body>
+</html>
