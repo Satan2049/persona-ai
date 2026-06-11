@@ -11,12 +11,14 @@ build/
 .ruff_cache/
 
 # Virtual environments
+apps/backend/.venv/
 backend/.venv/
 .venv/
 venv/
 ENV/
 
 # Secrets and local config
+apps/backend/.env
 backend/.env
 .env
 .env.local
@@ -26,20 +28,33 @@ backend/.env
 # Generated runtime artifacts
 audio/*
 !audio/.gitkeep
+apps/backend/audio/*
+!apps/backend/audio/.gitkeep
+apps/audio/*
+!apps/audio/.gitkeep
 backend/audio/*
 !backend/audio/.gitkeep
 
-# Piper binary distribution (download separately; not part of this repo)
+# Piper binary distribution (download separately)
 piper/
 
-# Piper voice models (download separately; not part of this repo)
+# Piper voice models (download separately)
 piper_models/*
 !piper_models/.gitkeep
 !piper_models/README.md
 
-# RAG vector index (built on startup or via scripts/build_rag_index.py)
+# RAG vector index
 data/rag_index/*
 !data/rag_index/.gitkeep
+
+# Desktop / sidecar build outputs
+apps/desktop/sidecar/dist/
+apps/desktop/sidecar/build/
+apps/desktop/src-tauri/binaries/*
+!apps/desktop/src-tauri/binaries/.gitkeep
+apps/desktop/src-tauri/target/
+apps/desktop/node_modules/
+node_modules/
 
 # OS / editor
 .DS_Store
@@ -53,3 +68,6 @@ desktop.ini
 
 # Logs
 *.log
+
+# Local release staging (upload to GitHub Releases)
+dist/release/

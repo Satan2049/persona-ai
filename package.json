@@ -1,0 +1,19 @@
+{
+  "name": "persona-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Persona AI — offline psychologist avatar assistant",
+  "workspaces": [
+    "apps/desktop"
+  ],
+  "scripts": {
+    "backend": "powershell -ExecutionPolicy Bypass -File scripts/start-backend.ps1",
+    "desktop:dev": "npm run dev -w @persona-ai/desktop",
+    "desktop:build": "powershell -ExecutionPolicy Bypass -File scripts/build-desktop.ps1",
+    "sidecar:build": "powershell -ExecutionPolicy Bypass -File scripts/build-sidecar.ps1",
+    "release:checksums": "powershell -ExecutionPolicy Bypass -File scripts/generate-sha256.ps1",
+    "clean": "powershell -ExecutionPolicy Bypass -File scripts/clean-temps.ps1",
+    "clean:deep": "powershell -ExecutionPolicy Bypass -File scripts/clean-temps.ps1 -Deep",
+    "clean:runtime": "powershell -ExecutionPolicy Bypass -File scripts/clean-temps.ps1 -Runtime"
+  }
+}

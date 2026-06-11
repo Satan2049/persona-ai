@@ -1,0 +1,17 @@
+{
+  "name": "@persona-ai/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Persona AI desktop shell (Tauri)",
+  "scripts": {
+    "dev": "powershell -ExecutionPolicy Bypass -File ../../scripts/sync-desktop-ui.ps1 && powershell -ExecutionPolicy Bypass -File ../../scripts/ensure-sidecar-binary.ps1 && tauri dev",
+    "prebuild": "powershell -ExecutionPolicy Bypass -File ../../scripts/stop-desktop-processes.ps1 && powershell -ExecutionPolicy Bypass -File ../../scripts/ensure-sidecar-binary.ps1 && powershell -ExecutionPolicy Bypass -File ../../scripts/sync-desktop-ui.ps1 && powershell -ExecutionPolicy Bypass -File ../../scripts/prepare-desktop-icons.ps1",
+    "build": "tauri build",
+    "sidecar:build": "powershell -ExecutionPolicy Bypass -File ../../scripts/build-sidecar.ps1",
+    "build:sidecar": "npm run sidecar:build",
+    "icons": "powershell -ExecutionPolicy Bypass -File ../../scripts/prepare-desktop-icons.ps1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.4.0"
+  }
+}

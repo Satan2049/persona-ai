@@ -473,7 +473,7 @@
               <div>
                 <h3>Configure backend &amp; Piper</h3>
                 <p>
-                  Copy <code>backend/.env.example</code> to <code>backend/.env</code>, set your LLM API, install
+                  Copy <code>apps/backend/.env.example</code> to <code>apps/backend/.env</code>, set your LLM API, install
                   <a href="https://github.com/OHF-Voice/piper1-gpl" target="_blank" rel="noopener noreferrer">Piper</a>,
                   and download voice models into <code>piper_models/</code>. Full steps are in the README.
                 </p>
@@ -484,7 +484,7 @@
               <div>
                 <h3>Start the server</h3>
                 <p>
-                  On Windows, run <code>backend\run.bat</code>. Then open
+                  On Windows, run <code>scripts\start-backend.bat</code> (or <code>scripts/start-backend.ps1</code>). Then open
                   <code>http://127.0.0.1:8000/</code> for the full avatar UI.
                 </p>
               </div>
@@ -525,7 +525,7 @@
     <script>
       (function () {
         /** @type {string} Set your GitHub username here before deploying. */
-        const GITHUB_USER = "USERNAME";
+        const GITHUB_USER = "Satan2049";
         /** @type {string} Repository name (use GITHUB_USER + ".github.io" for a user site at root URL). */
         const GITHUB_REPO = "persona-ai";
 

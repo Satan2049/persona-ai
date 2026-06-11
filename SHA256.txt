@@ -1,0 +1,16 @@
+﻿# Persona AI - SHA256 checksums
+# Generated: 2026-06-10 18:18:54 +03:30
+# Source directory: D:\Projects\persona-ai\apps\desktop\src-tauri\target\release\bundle
+#
+# Verify (PowerShell):
+#   Get-FileHash -Algorithm SHA256 -Path '.\Persona AI_0.1.0_x64-setup.exe'
+# Compare the hash with the line below.
+#
+# VirusTotal reports (v0.1.0): see docs/TRUST.md
+#   MSI:  a05ffacf2e24f92d6f351b56557b57a0aaf4ba1680b796f32bc040a2c7d0cd57
+#   NSIS: 01da3bb0a513c851a7a975a53c4dee3748b247ded5bac7518f00fd0469e18702
+#
+# Re-run scripts/generate-sha256.ps1 if you rebuild installers and upload new assets.
+
+a05ffacf2e24f92d6f351b56557b57a0aaf4ba1680b796f32bc040a2c7d0cd57  msi/Persona AI_0.1.0_x64_en-US.msi
+01da3bb0a513c851a7a975a53c4dee3748b247ded5bac7518f00fd0469e18702  nsis/Persona AI_0.1.0_x64-setup.exe

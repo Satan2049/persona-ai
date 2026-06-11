@@ -1,271 +1,206 @@
-# Persona AI — Smart Psychologist Avatar
+<p align="center">
+  <img src="assets/icons/app-icon.svg" width="128" alt="Persona AI logo" />
+</p>
 
-An offline-first web demo: a supportive psychologist-style assistant with a **2D avatar**, **lip-sync**, and **local text-to-speech**. The backend uses an OpenAI-compatible LLM, optional FAQ-grounded RAG, and [Piper](https://github.com/OHF-Voice/piper1-gpl) for speech synthesis.
+<h1 align="center">Persona AI</h1>
 
-> **Disclaimer:** This is a research / demo assistant. It does not diagnose or replace professional mental-health care. Configure emergency and researcher contact numbers in `backend/.env`.
+<p align="center">
+  <strong>Offline-first psychologist avatar</strong> — supportive chat, local Piper TTS, lip-sync, and FAQ-grounded RAG
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10--3.12-3776AB?logo=python&logoColor=white" alt="Python 3.10-3.12" /></a>
+  <a href="https://tauri.app/"><img src="https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white" alt="Tauri 2" /></a>
+  <a href="https://fastapi.tiangolo.com/"><img src="https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white" alt="FastAPI" /></a>
+  <a href=".github/workflows/backend.yml"><img src="https://img.shields.io/badge/CI-backend-lightgrey" alt="Backend CI" /></a>
+</p>
+
+<p align="center">
+  <a href="#installation">Installation</a> ·
+  <a href="#development">Development</a> ·
+  <a href="#build">Build</a> ·
+  <a href="docs/TRUST.md">Verify releases</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a>
+</p>
+
+---
+
+## Description
+
+**Persona AI** is an open-source research demo: a supportive psychologist-style assistant with a **2D avatar**, **lip-sync**, and **local text-to-speech**. A FastAPI backend connects to an OpenAI-compatible LLM, optional FAQ-grounded retrieval (RAG), and [Piper](https://github.com/OHF-Voice/piper1-gpl) for offline speech synthesis. A **Tauri desktop app** packages the same stack for Windows.
+
+> **Disclaimer:** This is a research / demo assistant. It does not diagnose or replace professional mental-health care. Configure emergency and researcher contact numbers in `apps/backend/.env`.
+
+---
 
 ## Features
 
-- Persian and English UI with locale-locked system prompts
-- Piper TTS with multiple voices discovered from disk
-- FAQ-grounded retrieval (RAG) over `data/faq_dataset.json`
-- High-risk content detection with escalation replies
-- Bundled web UI served from the backend at `http://127.0.0.1:8000/`
-
-## Project layout
-
-```
-persona-ai/
-├── backend/
-│   ├── run.bat         # Easiest way to start the server on Windows
-│   ├── .env.example    # Copy to .env and fill in
-│   └── app/            # FastAPI application
-├── ui/                 # Static avatar + chat UI
-├── data/               # FAQ dataset; RAG index built at runtime
-├── piper_models/       # Put downloaded Piper .onnx voices here (not in git)
-├── audio/              # Generated WAV files (not in git)
-└── voice_avatar_map.json
-```
-
-**Not included in this repository:** Piper executable, Piper ONNX voice files, API keys, or generated audio/index artifacts.
-
-## Prerequisites
-
-- **Windows** (recommended for this project’s `run.bat` workflow) or Linux/macOS
-- **Python 3.10+**
-- An OpenAI-compatible **chat** API (Ollama, vLLM, a private gateway, etc.)
-- For RAG (on by default): an OpenAI-compatible **embeddings** API
-- **Piper** binary + voice models (see [Piper TTS setup](#piper-tts-setup))
+- **Bilingual UI** — Persian and English with locale-locked system prompts
+- **Offline TTS** — Piper voices discovered from disk; WAV output with viseme timelines
+- **Lip-sync avatar** — mouth animation driven by returned viseme data
+- **FAQ-grounded RAG** — retrieval over `data/faq_dataset.json` (on by default)
+- **Safety layer** — high-risk content detection and escalation replies
+- **Desktop app** — Tauri shell + PyInstaller Python sidecar (Windows installers)
+- **Themeable UI** — multiple color themes and voice / face-age controls
 
 ---
 
-## Quick start
+## Screenshots
 
-### 1. Clone and install Python dependencies
+<p align="center">
+  <img src="assets/screenshots/01-chat.svg" alt="Chat session" width="49%" />
+  <img src="assets/screenshots/02-avatar.svg" alt="Avatar and lip-sync" width="49%" />
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/03-voices.svg" alt="Voice library" width="49%" />
+  <img src="assets/screenshots/04-settings.svg" alt="Settings panel" width="49%" />
+</p>
+
+<p align="center"><em>UI mockups — replace with real captures in <code>assets/screenshots/</code> when ready.</em></p>
+
+---
+
+## Demo video
+
+**[Watch the demo →](https://github.com/Satan2049/persona-ai/releases/download/v.0.1.0/demo.mp4)** — screen recording of chat, Piper TTS, lip-sync, and the Windows desktop app.
+
+---
+
+## Installation
+
+### Prerequisites
+
+| Requirement | Notes |
+|-------------|--------|
+| **Python 3.10–3.12** | Recommended; 3.14 may break `pydantic` wheels |
+| **Node.js 20+** | Desktop build only |
+| **Rust** | Desktop build only |
+| **LLM API** | Ollama, vLLM, or any OpenAI-compatible chat endpoint |
+| **Embeddings API** | For RAG (defaults to same base as LLM) |
+| **Piper** | Binary + voice models — [docs/piper-setup.md](docs/piper-setup.md) |
+
+### Quick start (web / dev server)
 
 ```bash
-cd backend
+git clone https://github.com/Satan2049/persona-ai.git
+cd persona-ai/apps/backend
 python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-copy .env.example .env
 ```
 
-On Linux/macOS use `source .venv/bin/activate` and `cp .env.example .env`.
-
-### 2. Configure the LLM and Piper
-
-Edit **`backend/.env`**:
-
-- Set `MODEL_API_BASE`, `MODEL_API_KEY`, and `MODEL_NAME` for your chat API.
-- After installing Piper (next section), set `PIPER_BIN` and confirm `PIPER_MODELS_DIR=../piper_models`.
-
-### 3. Install Piper (binary + voices)
-
-Follow **[Piper TTS setup](#piper-tts-setup)** below. You need at least one **English** and one **Farsi** voice if you use both UI languages.
-
-### 4. Start the server
-
-**Windows (recommended):** double-click or run from a terminal:
-
-```text
-backend\run.bat
-```
-
-`run.bat` changes to the `backend` folder, activates `.venv` if present, and starts Uvicorn on **http://127.0.0.1:8000/** with reload enabled.
-
-**Manual start** (any OS), from the `backend` folder:
+**Windows:** `.venv\Scripts\activate` · **Linux/macOS:** `source .venv/bin/activate`
 
 ```bash
-uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+pip install -r requirements.txt
+cp .env.example .env    # Windows: copy .env.example .env
 ```
 
-### 5. Open the UI
-
-Browse to **http://127.0.0.1:8000/**.
-
-Use **Settings** in the UI to confirm the API base, or check **http://127.0.0.1:8000/health** — `tts.piperExecutableOk` and `tts.voiceCount` should be true / greater than zero when Piper is set up correctly.
-
-More detail: [backend/README.md](backend/README.md) · [docs/rag-system.md](docs/rag-system.md)
-
----
-
-## Piper TTS setup
-
-Piper turns the assistant’s text reply into **offline WAV audio** for the avatar. This repo does **not** ship the Piper program or voice weights; you download them once and point `backend/.env` at them.
-
-### Overview
-
-| Piece | What it is | Where it goes |
-|-------|------------|----------------|
-| **Piper binary** | `piper.exe` (Windows) plus its DLLs | Any folder; set `PIPER_BIN` to the full path |
-| **Voice model** | Two files per voice: `*.onnx` + `*.onnx.json` | `piper_models/` (default `PIPER_MODELS_DIR`) |
-
-The backend scans `PIPER_MODELS_DIR` for matching pairs and fills the **Voice** dropdown in the UI. Voice ids look like `en_US-amy-medium` or `fa_IR-amir-medium` (derived from the `.onnx` filename without extension).
-
----
-
-### Step 1 — Download the Piper executable
-
-Use **[piper1-gpl](https://github.com/OHF-Voice/piper1-gpl)** (GPL-licensed Piper build):
-
-1. Open **https://github.com/OHF-Voice/piper1-gpl**
-2. Download a **release** build for your OS (on Windows, use the amd64 archive that contains `piper.exe`).
-3. Extract the archive to a folder, e.g. `D:\tools\piper\` or `persona-ai\piper\`.
-4. Keep **`piper.exe` and every `.dll` from that archive in the same folder.** Piper will not start if DLLs are missing.
-
-Set in **`backend/.env`**:
-
-```env
-PIPER_BIN=D:\tools\piper\piper.exe
-```
-
-Or, if you extracted under the project:
-
-```env
-PIPER_BIN=../piper/piper.exe
-```
-
-**Windows DLL error (exit code 3221225781 / 0xC0000135):** the process failed before Piper could run — keep all DLLs beside `piper.exe` and install [VC++ Redistributable 2015–2022 x64](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist).
-
----
-
-### Step 2 — Download voice models from Hugging Face
-
-Voices are published under **[rhasspy/piper-voices](https://huggingface.co/rhasspy/piper-voices)** on Hugging Face. For each link below, open the page, download the model files, and place them in **`piper_models/`** at the repo root.
-
-#### What to download on each Hugging Face page
-
-Each voice folder contains files such as:
-
-- `*.onnx` — the neural voice model (required)
-- `*.onnx.json` — Piper config for that model (required)
-
-Download **both** for the voice you want. The **basename must match** (e.g. `en_US-amy-medium.onnx` and `en_US-amy-medium.onnx.json`). If Hugging Face shows different names, rename so the pair shares the same stem before the extension.
-
-#### English voices (`en_US`)
-
-| Voice | Quality | Hugging Face folder |
-|-------|---------|---------------------|
-| Amy | medium | https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_US/amy/medium |
-| Joe | medium | https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_US/joe/medium |
-| Ryan | high | https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_US/ryan/high |
-| Sam | medium | https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_US/sam/medium |
-
-Expected local filenames (examples):
-
-- `en_US-amy-medium.onnx` + `en_US-amy-medium.onnx.json`
-- `en_US-joe-medium.onnx` + `en_US-joe-medium.onnx.json`
-- `en_US-ryan-high.onnx` + `en_US-ryan-high.onnx.json`
-- `en_US-sam-medium.onnx` + `en_US-sam-medium.onnx.json`
-
-#### Farsi / Persian voices (`fa_IR`)
-
-| Voice | Quality | Hugging Face folder |
-|-------|---------|---------------------|
-| Amir | medium | https://huggingface.co/rhasspy/piper-voices/tree/main/fa/fa_IR/amir/medium |
-| Ganji | medium | https://huggingface.co/rhasspy/piper-voices/tree/main/fa/fa_IR/ganji/medium |
-
-Expected local filenames (examples):
-
-- `fa_IR-amir-medium.onnx` + `fa_IR-amir-medium.onnx.json`
-- `fa_IR-ganji-medium.onnx` + `fa_IR-ganji-medium.onnx.json`
-
-You do **not** need every voice — one English and one Farsi pair is enough to test both locales. Installing all six gives more choices in the UI voice selector.
-
-#### Target folder layout
-
-After downloads, `piper_models/` should look like:
+Edit `apps/backend/.env` — set `MODEL_*`, `PIPER_BIN`, and paths. Then from the repo root:
 
 ```text
-piper_models/
-  en_US-amy-medium.onnx
-  en_US-amy-medium.onnx.json
-  fa_IR-amir-medium.onnx
-  fa_IR-amir-medium.onnx.json
-  …
+scripts\start-backend.bat        # Windows
+./scripts/start-backend.ps1      # PowerShell
 ```
 
-Default env (usually no change needed):
+Open **http://127.0.0.1:8000/** · Health check: **http://127.0.0.1:8000/health**
 
-```env
-PIPER_MODELS_DIR=../piper_models
-```
+### Desktop app (release)
 
-Optional — force a default voice per language in the UI:
+Download the latest installer from **[GitHub Releases](https://github.com/Satan2049/persona-ai/releases)**.
 
-```env
-PIPER_VOICE_ID_EN=en_US-amy-medium
-PIPER_VOICE_ID_FA=fa_IR-amir-medium
-```
+Verify downloads with [docs/TRUST.md](docs/TRUST.md) (SHA256 checksums and [VirusTotal](https://www.virustotal.com/) scans).
 
 ---
 
-### Step 3 — Verify Piper from the running backend
+## Development
 
-1. Start the server with **`backend\run.bat`** (or `uvicorn` as above).
-2. Open **http://127.0.0.1:8000/health**
-3. Confirm:
-   - `tts.piperExecutableOk` is `true`
-   - `tts.voiceCount` is at least `1` (ideally 2+ if you installed both locales)
-4. In the UI, pick **English** or **فارسی**, choose a **Voice**, and send a message — you should hear speech and see lip movement.
+```text
+persona-ai/
+├── apps/
+│   ├── backend/          # FastAPI, RAG, Piper
+│   └── desktop/          # Tauri + sidecar packaging
+├── assets/               # Icons, screenshots, config
+├── data/                 # FAQ corpus, RAG index
+├── docs/                 # Architecture, trust, Piper setup
+├── scripts/              # Dev and release helpers
+└── ui/                   # Static avatar chat frontend
+```
+
+| Task | Command |
+|------|---------|
+| Start API (dev) | `scripts/start-backend.bat` |
+| Backend docs | [apps/backend/README.md](apps/backend/README.md) |
+| Desktop docs | [apps/desktop/README.md](apps/desktop/README.md) |
+| Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Security | [SECURITY.md](SECURITY.md) |
+
+**Not in git:** Piper binary, voice `.onnx` files, API keys, generated `audio/` and `data/rag_index/`.
 
 ---
 
-### Piper troubleshooting
+## Build
 
-| Problem | What to do |
-|---------|------------|
-| No voices in UI | Check both `.onnx` and `.onnx.json` exist in `piper_models/` with the same basename |
-| `piperExecutableOk: false` | Fix `PIPER_BIN` path; on Windows use full path to `piper.exe` |
-| **Missing Input: sid** in logs | Multi-speaker ONNX issue — set `PIPER_SPEAKER_ID=0` or `PIPER_ALWAYS_SPEAKER=1` in `.env` |
-| Piper exits immediately on Windows | Keep all DLLs next to `piper.exe`; install VC++ Redistributable x64 |
+### Python sidecar (PyInstaller)
 
-See also [piper_models/README.md](piper_models/README.md) and [backend/README.md](backend/README.md).
+```powershell
+npm run sidecar:build
+# or: .\scripts\build-sidecar.ps1
+```
+
+Output: `apps/desktop/src-tauri/binaries/persona-backend-x86_64-pc-windows-msvc.exe`
+
+### Desktop installers (Tauri)
+
+```powershell
+npm install
+npm run desktop:build
+# or: .\scripts\build-desktop.ps1
+```
+
+Installers: `apps/desktop/src-tauri/target/release/bundle/`
+
+### Release checksums
+
+Copy release `.exe` / `.zip` / `.msi` files into `dist/release/`, then:
+
+```powershell
+.\scripts\generate-sha256.ps1 -ReleaseDir "dist\release"
+```
+
+Upload `SHA256.txt` with the release. See [docs/TRUST.md](docs/TRUST.md).
 
 ---
 
-## Configuration highlights
+## Tech stack
 
-| Variable | Purpose |
-|----------|---------|
-| `MODEL_*` | OpenAI-compatible chat LLM |
-| `SOCIAL_EMERGENCY_NUMBER` / `RESEARCHER_NUMBER` | Numbers in prompts and escalation text |
-| `PIPER_BIN` / `PIPER_MODELS_DIR` | Local TTS binary and voice folder |
-| `RAG_*` / `EMBEDDING_*` | FAQ retrieval (on by default) |
-| `VOICE_AVATAR_MAP_PATH` | Avatar age per voice (`voice_avatar_map.json`) |
+| Layer | Technology |
+|-------|------------|
+| Frontend | HTML, CSS, vanilla JavaScript (`ui/`) |
+| API | [FastAPI](https://fastapi.tiangolo.com/) + [Uvicorn](https://www.uvicorn.org/) |
+| RAG | NumPy vector store, OpenAI-compatible embeddings |
+| TTS | [Piper](https://github.com/OHF-Voice/piper1-gpl) (subprocess) |
+| LLM | OpenAI-compatible HTTP (Ollama, etc.) |
+| Desktop shell | [Tauri 2](https://tauri.app/) (Rust) |
+| Sidecar | [PyInstaller](https://pyinstaller.org/) |
 
-Copy from [backend/.env.example](backend/.env.example). **Do not commit** `backend/.env`.
-
-## Avatar voice mapping
-
-`voice_avatar_map.json` maps Piper voice ids to avatar face age (`child`, `young`, `old`). The default `"*"` entry applies to all voices; override per voice as needed. Examples: [voice_avatar_map.example.json](voice_avatar_map.example.json).
+---
 
 ## Documentation
 
-- [backend/README.md](backend/README.md) — API and backend notes
 - [docs/rag-system.md](docs/rag-system.md) — RAG design
-- [docs/intelligent-avatar-program.md](docs/intelligent-avatar-program.md) — program overview
+- [docs/desktop-data-layout.md](docs/desktop-data-layout.md) — install/portable folders, models, Piper voices
+- [docs/TRUST.md](docs/TRUST.md) — verify release hashes and VirusTotal
+- [docs/architecture/overview.md](docs/architecture/overview.md) — system overview
+- [docs/intelligent-avatar-program.md](docs/intelligent-avatar-program.md) — program notes
 
-## GitHub Pages
-
-The root **[index.html](index.html)** is a static project landing page for GitHub Pages. The live avatar app still requires the local backend.
-
-### Publish at `https://USERNAME.github.io/` (user site)
-
-1. Create or rename the repository to **`USERNAME.github.io`** (replace `USERNAME` with your GitHub username).
-2. In **`index.html`**, set `GITHUB_USER` and `GITHUB_REPO` at the bottom of the script (`GITHUB_REPO` should be `USERNAME.github.io`).
-3. Push to GitHub. Open **Settings → Pages → Build and deployment**: source **Deploy from a branch**, branch **`main`**, folder **`/ (root)`**.
-4. After a minute, visit **https://USERNAME.github.io/**.
-
-### Publish from this repo (`persona-ai`)
-
-1. Leave `GITHUB_REPO = "persona-ai"` in **`index.html`** and set `GITHUB_USER`.
-2. Enable Pages on branch **`main`**, folder **`/ (root)`**.
-3. Site URL: **https://USERNAME.github.io/persona-ai/**
-
-The **`.nojekyll`** file at the repo root tells GitHub Pages not to run Jekyll, so static assets (including `ui/`) are served as-is.
+---
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Piper ([piper1-gpl](https://github.com/OHF-Voice/piper1-gpl)) and [piper-voices](https://huggingface.co/rhasspy/piper-voices) have their own licenses; check those projects before redistribution.
+MIT — see [LICENSE](LICENSE).
+
+Third-party components have their own licenses:
+
+- [Piper (piper1-gpl)](https://github.com/OHF-Voice/piper1-gpl) — GPL; review before redistribution
+- [piper-voices](https://huggingface.co/rhasspy/piper-voices) — per-voice licenses on Hugging Face
