@@ -49,16 +49,14 @@
 ## Screenshots
 
 <p align="center">
-  <img src="assets/screenshots/01-chat.svg" alt="Chat session" width="49%" />
-  <img src="assets/screenshots/02-avatar.svg" alt="Avatar and lip-sync" width="49%" />
+  <img src="assets/screenshots/01-chat.png" alt="Chat session" width="49%" />
+  <img src="assets/screenshots/02-avatar.png" alt="Avatar and lip-sync" width="49%" />
 </p>
 
 <p align="center">
-  <img src="assets/screenshots/03-voices.svg" alt="Voice library" width="49%" />
-  <img src="assets/screenshots/04-settings.svg" alt="Settings panel" width="49%" />
+  <img src="assets/screenshots/03-voices.png" alt="Voice library" width="49%" />
+  <img src="assets/screenshots/04-settings.png" alt="Settings panel" width="49%" />
 </p>
-
-<p align="center"><em>UI mockups — replace with real captures in <code>assets/screenshots/</code> when ready.</em></p>
 
 ---
 
