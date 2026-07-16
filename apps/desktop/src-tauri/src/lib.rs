@@ -64,13 +64,35 @@ fn wait_for_health(port: u16) -> Result<(), String> {
     ))
 }
 
+fn install_root() -> PathBuf {
+    std::env::current_exe()
+        .ok()
+        .and_then(|path| path.parent().map(|parent| parent.to_path_buf()))
+        .unwrap_or_default()
+}
+
+fn locate_repo_backend_env(start: &PathBuf) -> Option<PathBuf> {
+    let mut dir = start.clone();
+    for _ in 0..12 {
+        let candidate = dir.join("apps").join("backend").join(".env");
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+        if !dir.pop() {
+            break;
+        }
+    }
+    None
+}
+
 fn spawn_backend(app: &tauri::AppHandle, port: u16) -> Result<CommandChild, String> {
     append_log(
         "desktop.log",
         &format!("spawning {SIDECAR_NAME} on {DEFAULT_HOST}:{port}"),
     );
 
-    let sidecar = app
+    let install_dir = install_root();
+    let mut sidecar = app
         .shell()
         .sidecar(SIDECAR_NAME)
         .map_err(|error| {
@@ -79,7 +101,16 @@ fn spawn_backend(app: &tauri::AppHandle, port: u16) -> Result<CommandChild, Stri
             msg
         })?
         .env("PERSONA_HOST", DEFAULT_HOST)
-        .env("PERSONA_PORT", port.to_string());
+        .env("PERSONA_PORT", port.to_string())
+        .env("PERSONA_INSTALL_DIR", install_dir.to_string_lossy().to_string());
+
+    if let Some(env_path) = locate_repo_backend_env(&install_dir) {
+        append_log(
+            "desktop.log",
+            &format!("using PERSONA_BACKEND_ENV={}", env_path.display()),
+        );
+        sidecar = sidecar.env("PERSONA_BACKEND_ENV", env_path.to_string_lossy().to_string());
+    }
 
     let (mut rx, child) = sidecar.spawn().map_err(|error| {
         let msg = format!("sidecar spawn denied or failed: {error}");
@@ -199,6 +230,7 @@ pub fn run() {
             } else {
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                     .title("Persona AI")
+                    .decorations(false)
                     .inner_size(1180.0, 820.0)
                     .min_inner_size(900.0, 640.0)
                     .build()

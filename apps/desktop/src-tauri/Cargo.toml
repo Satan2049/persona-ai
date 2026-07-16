@@ -1,6 +1,6 @@
 [package]
 name = "persona-ai-desktop"
-version = "0.1.0"
+version = "1.3.2"
 description = "Persona AI desktop shell"
 authors = ["Persona AI Contributors"]
 edition = "2021"

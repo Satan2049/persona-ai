@@ -1,39 +1,47 @@
 # Architecture overview
 
-Persona AI is a monorepo with three runtime surfaces:
+| Layer | Path | Role |
+|-------|------|------|
+| Backend | `apps/backend/` | FastAPI API, OpenAI-compatible LLM/TTS/STT, Rhubarb lip sync |
+| UI | `ui/` | Vanilla JS chat + voice sanctuary + Three.js GLB avatar |
+| Desktop | `apps/desktop/` | Tauri shell + PyInstaller sidecar |
 
-| Surface | Location | Role |
-|---------|----------|------|
-| Web UI | `ui/` | Avatar chat client (static HTML/JS) |
-| Backend | `apps/backend/` | FastAPI API, RAG, Piper TTS orchestration |
-| Desktop | `apps/desktop/` | Tauri shell; spawns Python sidecar |
-
-## Request flow
+## Chat + speech path
 
 ```
-Browser / Tauri WebView
-        → GET /  (static UI)
-        → POST /chat/respond
-              → RAG retrieve (optional)
-              → LLM (OpenAI-compatible HTTP)
-              → Piper subprocess (WAV)
-              → viseme timeline
-        ← JSON + audio URL
+Client POST /chat/respond
+  → FAQ roadmap injected into system prompt (high priority)
+  → LLM (OpenAI-compatible)
+  → TTS HTTP /audio/speech → WAV
+  → Rhubarb Lip Sync → mouth cues A–H / X
+  → JSON { assistantText, audioPath, visemes, meta.lipSync }
+  → UI plays audio + drives GLB morph targets / visemes
 ```
 
-## Path resolution
+## FAQ guidance
 
-`apps/backend/app/paths.py` resolves locations for:
+`data/faq_dataset.json` is not RAG. It is a **conversational roadmap**: short clarifying questions grouped by category. Closest rows to the user message are ranked first and placed ahead of the base system prompt.
 
-- **Development** — repo root (`data/`, `piper_models/`, `ui/`)
-- **Desktop sidecar** — PyInstaller bundle + `%APPDATA%/PersonaAI/` for writable data
+## Lip sync
 
-## Desktop bundle
+Visemes come from **audio analysis** (Rhubarb), not from guessing letters in the reply text.
 
-```
-Persona AI.exe (Tauri)
-    spawns persona-backend sidecar (PyInstaller)
-        serves bundled ui/ + API on 127.0.0.1:<ephemeral port>
-```
+- Install (Windows): `npm run rhubarb:ensure` → `tools/rhubarb/rhubarb.exe`
+- Persian / non-English: `-r phonetic`
+- English: `-r pocketSphinx` (+ dialog text when available)
 
-See [apps/desktop/README.md](../../apps/desktop/README.md) for build steps.
+## Avatars
+
+Only **GLB** is loaded (`ui/avatars/{gender}/avatar.glb`). Source files live under `assets/avatars/{gender}/source/`. Textures are embedded in the GLB.
+
+## Voice-first UI
+
+On launch the app opens the **voice sanctuary** (full-screen conversation). Users can switch to chat from there.
+
+## Desktop packaging
+
+| Platform | Sidecar | Installer |
+|----------|---------|-----------|
+| Windows | `persona-backend-<triple>.exe` | NSIS |
+| Linux | `persona-backend-<triple>` | AppImage / deb (CI) |
+| macOS | `persona-backend-<triple>` | DMG (CI) |

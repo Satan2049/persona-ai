@@ -6,6 +6,10 @@ import os
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+_LOADED_ENV_FILES: list[Path] = []
+
 
 def is_frozen() -> bool:
     return bool(getattr(sys, "frozen", False))
@@ -35,12 +39,25 @@ def backend_dir() -> Path:
 def repo_root() -> Path:
     """Monorepo / install root (`persona-ai/` or sidecar folder)."""
     if is_frozen():
-        return sidecar_dir()
+        return install_root()
+    return backend_dir().parent.parent
+
+
+def install_root() -> Path:
+    """Desktop install directory (parent of `resources/`) or repo root in dev."""
+    override = os.getenv("PERSONA_INSTALL_DIR", "").strip()
+    if override:
+        return Path(os.path.expandvars(os.path.expanduser(override))).resolve()
+    if is_frozen():
+        sd = sidecar_dir()
+        if sd.name.lower() == "resources":
+            return sd.parent
+        return sd
     return backend_dir().parent.parent
 
 
 def app_data_dir() -> Path:
-    """Writable per-user data (config, audio cache, RAG index)."""
+    """Writable per-user data (config, audio cache)."""
     override = os.getenv("PERSONA_DATA_DIR", "").strip()
     if override:
         return Path(os.path.expandvars(os.path.expanduser(override))).resolve()
@@ -54,20 +71,77 @@ def app_data_dir() -> Path:
 
 
 def find_dev_backend_env_file() -> Path | None:
-    """Locate apps/backend/.env when running a sidecar from the dev tree."""
+    """Locate apps/backend/.env for desktop sidecar (explicit path or repo walk)."""
+    override = os.getenv("PERSONA_BACKEND_ENV", "").strip()
+    if override:
+        path = Path(os.path.expandvars(os.path.expanduser(override))).resolve()
+        if path.is_file():
+            return path
+
     if not is_frozen():
         return None
-    current = sidecar_dir().resolve()
-    for _ in range(10):
-        for rel in (Path("apps") / "backend" / ".env", Path("backend") / ".env"):
-            candidate = (current / rel).resolve()
-            if candidate.is_file():
-                return candidate
-        parent = current.parent
-        if parent == current:
-            break
-        current = parent
+
+    rels = (Path("apps") / "backend" / ".env", Path("backend") / ".env")
+    seen: set[Path] = set()
+    for start in (sidecar_dir(), install_root()):
+        current = start.resolve()
+        for _ in range(12):
+            if current in seen:
+                break
+            seen.add(current)
+            for rel in rels:
+                candidate = (current / rel).resolve()
+                if candidate.is_file():
+                    return candidate
+            parent = current.parent
+            if parent == current:
+                break
+            current = parent
     return None
+
+
+def bundled_runtime_env_path() -> Path:
+    """PyInstaller-bundled snapshot of apps/backend/.env from the last sidecar build."""
+    return bundle_dir() / "config" / "runtime.env"
+
+
+def load_application_env() -> list[Path]:
+    """Load .env layers; later files override earlier ones."""
+    global _LOADED_ENV_FILES
+    _LOADED_ENV_FILES = []
+
+    bundled = bundle_dir() / "config" / "default.env"
+    if is_frozen() and bundled.is_file():
+        load_dotenv(bundled, override=True)
+        _LOADED_ENV_FILES.append(bundled)
+
+    appdata = app_data_dir() / ".env"
+    if appdata.is_file():
+        load_dotenv(appdata, override=True)
+        _LOADED_ENV_FILES.append(appdata)
+
+    runtime = bundled_runtime_env_path()
+    if is_frozen() and runtime.is_file():
+        load_dotenv(runtime, override=True)
+        _LOADED_ENV_FILES.append(runtime)
+
+    if not is_frozen():
+        local = backend_dir() / ".env"
+        if local.is_file():
+            load_dotenv(local, override=True)
+            _LOADED_ENV_FILES.append(local)
+
+    dev = find_dev_backend_env_file()
+    if dev and dev.is_file():
+        load_dotenv(dev, override=True)
+        if dev not in _LOADED_ENV_FILES:
+            _LOADED_ENV_FILES.append(dev)
+
+    return list(_LOADED_ENV_FILES)
+
+
+def loaded_env_files() -> list[Path]:
+    return list(_LOADED_ENV_FILES)
 
 
 def env_path_anchor() -> Path:
@@ -81,13 +155,17 @@ def env_path_anchor() -> Path:
 
 
 def env_file_paths() -> list[Path]:
-    """Load order: user data first, then repo/backend defaults."""
-    paths = [app_data_dir() / ".env"]
+    """Legacy list used by settings snapshot; prefer load_application_env()."""
+    paths: list[Path] = []
     bundled = bundle_dir() / "config" / "default.env"
     if is_frozen() and bundled.is_file():
         paths.append(bundled)
+    paths.append(app_data_dir() / ".env")
     if not is_frozen():
         paths.append(backend_dir() / ".env")
+    dev = find_dev_backend_env_file()
+    if dev and dev.is_file():
+        paths.append(dev)
     return paths
 
 
@@ -96,19 +174,6 @@ def default_ui_root() -> Path:
     if bundled.is_dir():
         return bundled
     return repo_root() / "ui"
-
-
-def default_piper_models_dir() -> Path:
-    env = os.getenv("PIPER_MODELS_DIR", "").strip()
-    if env:
-        return resolve_path(env)
-    for candidate in (
-        app_data_dir() / "piper_models",
-        repo_root() / "piper_models",
-    ):
-        if candidate.is_dir():
-            return candidate
-    return repo_root() / "piper_models"
 
 
 def default_audio_dir() -> Path:
@@ -133,20 +198,13 @@ def default_voice_avatar_map() -> Path:
 
 
 def default_faq_path() -> Path:
-    env = os.getenv("RAG_FAQ_PATH", "").strip()
+    env = os.getenv("FAQ_PATH", "").strip() or os.getenv("RAG_FAQ_PATH", "").strip()
     if env:
         return resolve_path(env)
     bundled = bundle_dir() / "data" / "faq_dataset.json"
     if bundled.is_file():
         return bundled
     return repo_root() / "data" / "faq_dataset.json"
-
-
-def default_rag_index_dir() -> Path:
-    env = os.getenv("RAG_INDEX_DIR", "").strip()
-    if env:
-        return resolve_path(env)
-    return app_data_dir() / "rag_index"
 
 
 def resolve_path(raw: str, *, base: Path | None = None) -> Path:
@@ -165,8 +223,6 @@ def ensure_app_data_dirs() -> None:
     for folder in (
         app_data_dir(),
         app_data_dir() / "audio",
-        app_data_dir() / "piper_models",
-        app_data_dir() / "rag_index",
         app_data_dir() / "logs",
     ):
         folder.mkdir(parents=True, exist_ok=True)

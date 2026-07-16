@@ -10,12 +10,12 @@ Each release should include a **`SHA256.txt`** file listing cryptographic hashes
 
 ### Windows (PowerShell)
 
-1. Download the release asset (for example `Persona AI_0.1.0_x64-setup.exe`) and `SHA256.txt`.
+1. Download the release asset (for example `Persona AI_1.0.0_x64-setup.exe`) and `SHA256.txt`.
 2. Open PowerShell in the download folder.
 3. Compute the hash:
 
    ```powershell
-   Get-FileHash -Algorithm SHA256 -Path ".\Persona AI_0.1.0_x64-setup.exe"
+   Get-FileHash -Algorithm SHA256 -Path ".\Persona AI_1.0.0_x64-setup.exe"
    ```
 
 4. Open `SHA256.txt` and find the line for the same filename.
@@ -24,22 +24,22 @@ Each release should include a **`SHA256.txt`** file listing cryptographic hashes
 ### Linux / macOS
 
 ```bash
-shasum -a 256 "Persona AI_0.1.0_x64-setup.exe"
+shasum -a 256 "Persona AI_1.0.0_x64-setup.exe"
 # or
-sha256sum "Persona AI_0.1.0_x64-setup.exe"
+sha256sum "Persona AI_1.0.0_x64-setup.exe"
 ```
 
 Compare the output with the corresponding line in `SHA256.txt`.
 
-### Verify every asset
+### Typical assets (v1.3.2+)
 
-Repeat for each file you downloaded:
+| Platform | Asset |
+|----------|--------|
+| Windows | NSIS `.exe` installer |
+| Linux | AppImage / `.deb` (CI artifacts) |
+| macOS | `.dmg` (CI artifacts) |
 
-| Typical asset | Format |
-|---------------|--------|
-| NSIS installer | `.exe` |
-| MSI installer | `.msi` |
-| Portable zip | `.zip` |
+Older releases may also include `.msi` or `.zip` assets.
 
 If **any** hash mismatches, **do not run** the file. Delete it and re-download from the official release page.
 
@@ -74,6 +74,10 @@ Windows installers and bundled executables may trigger heuristic warnings from a
 
 Both reports showed **no malicious detections** at the time of release.
 
+### v1.0.0
+
+After building the NSIS installer, run `npm run release:checksums` and upload `SHA256.txt` with the release. Submit the `.exe` to VirusTotal when publishing.
+
 ---
 
 ## 4. What we do not bundle
@@ -81,7 +85,7 @@ Both reports showed **no malicious detections** at the time of release.
 Official releases **do not** include:
 
 - LLM model weights (configure your own Ollama or API endpoint)
-- Piper voice `.onnx` files (download separately; see [docs/piper-setup.md](piper-setup.md))
+- TTS via your configured OpenAI-compatible API (see `apps/backend/.env.example`)
 - API keys or `.env` secrets
 
 The desktop app stores user configuration under `%APPDATA%\PersonaAI\` on Windows.

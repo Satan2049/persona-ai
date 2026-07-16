@@ -1,9 +1,11 @@
 {
   "*": { "voiceAge": "young" },
-  "fa_IR-amir-medium": { "voiceAge": "young" },
-  "fa_IR-ganji-medium": { "voiceAge": "old" },
-  "en_US-amy-medium": { "voiceAge": "young" },
-  "en_US-ryan-high": { "voiceAge": "young" },
-  "en_US-joe-medium": { "voiceAge": "old" },
-  "en_US-sam-medium": { "voiceAge": "child" }
+  "shimmer": { "voiceAge": "young" },
+  "nova": { "voiceAge": "young" },
+  "coral": { "voiceAge": "young" },
+  "sage": { "voiceAge": "old" },
+  "alloy": { "voiceAge": "young" },
+  "fable": { "voiceAge": "child" },
+  "echo": { "voiceAge": "young" },
+  "onyx": { "voiceAge": "old" }
 }

@@ -1,81 +1,53 @@
 import asyncio
-import contextlib
 import json
 import logging
 import os
 import re
-import shutil
-import subprocess
 import time
 import unicodedata
-import wave
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Literal
-from uuid import uuid4
 
 import httpx
-from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from app import rhubarb, stt, tts
 from app.paths import (
-    backend_dir,
-    default_audio_dir,
-    default_piper_models_dir,
+    app_data_dir,
     default_ui_root,
     default_voice_avatar_map,
     ensure_app_data_dirs,
-    env_file_paths,
     env_path_anchor,
+    find_dev_backend_env_file,
+    load_application_env,
+    loaded_env_files,
     resolve_path,
 )
 
 _BACKEND_DIR = str(env_path_anchor())
-for _env_path in reversed(env_file_paths()):
-    if _env_path.is_file():
-        load_dotenv(_env_path, override=True)
+load_application_env()
 ensure_app_data_dirs()
+tts.reload_tts_config()
+stt.reload_stt_config()
+rhubarb.reload_rhubarb_config()
+_dev_env = find_dev_backend_env_file()
 
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def _app_lifespan(_app: FastAPI):
-    _app.state.rag = {"enabled": False, "status": "initializing"}
-
-    async def _init_rag() -> None:
-        try:
-            from app.rag.bootstrap import initialize_rag
-
-            rag_init = await asyncio.to_thread(initialize_rag)
-            if rag_init.get("buildError"):
-                logger.warning("RAG index not ready: %s", rag_init.get("buildError"))
-            elif rag_init.get("enabled"):
-                logger.info(
-                    "RAG ready: index=%s records=%s built=%s",
-                    rag_init.get("indexReady"),
-                    rag_init.get("recordCount"),
-                    rag_init.get("built"),
-                )
-            _app.state.rag = rag_init
-        except Exception as error:
-            _app.state.rag = {"enabled": False, "error": str(error)[:400]}
-            logger.exception("RAG startup failed")
-
-    rag_task = asyncio.create_task(_init_rag())
     yield
-    rag_task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await rag_task
 
 
 app = FastAPI(
     title="Smart Avatar Offline Backend",
-    version="0.1.0",
+    version="1.3.2",
     lifespan=_app_lifespan,
 )
 
@@ -110,12 +82,6 @@ def _env_trim(raw: str | None, default: str = "") -> str:
 SOCIAL_EMERGENCY_NUMBER = _env_trim(os.getenv("SOCIAL_EMERGENCY_NUMBER"), "123")
 RESEARCHER_NUMBER = _env_trim(os.getenv("RESEARCHER_NUMBER"), "09373759943")
 
-PIPER_BIN_RAW = _env_trim(os.getenv("PIPER_BIN"), "piper")
-PIPER_SPEAKER_ID = os.getenv("PIPER_SPEAKER_ID", "")
-# If "true"/"1", always pass --speaker (uses PIPER_SPEAKER_ID or 0). Fixes ONNX "Missing Input: sid" when JSON omits num_speakers.
-PIPER_ALWAYS_SPEAKER = _env_trim(os.getenv("PIPER_ALWAYS_SPEAKER"), "").lower() in ("1", "true", "yes")
-PIPER_TIMEOUT_SECONDS = int(os.getenv("PIPER_TIMEOUT_SECONDS", "30"))
-
 
 def _resolve_path_from_backend_dir(raw: str) -> str:
     text = raw.strip()
@@ -124,56 +90,11 @@ def _resolve_path_from_backend_dir(raw: str) -> str:
     return str(resolve_path(text, base=Path(_BACKEND_DIR)))
 
 
-def _looks_like_filesystem_path(value: str) -> bool:
-    if os.path.sep in value:
-        return True
-    if os.altsep and os.altsep in value:
-        return True
-    if len(value) > 1 and value[1] == ":":
-        return True
-    return value.startswith("./") or value.startswith(".\\")
-
-
-def _resolve_piper_bin(raw: str) -> str:
-    text = _env_trim(raw, "piper") or "piper"
-    expanded = os.path.expandvars(os.path.expanduser(text))
-    if _looks_like_filesystem_path(expanded):
-        resolved = (
-            os.path.normpath(expanded)
-            if os.path.isabs(expanded)
-            else _resolve_path_from_backend_dir(expanded)
-        )
-        return resolved
-    found = shutil.which(expanded)
-    if found:
-        return found
-    if os.name == "nt" and not expanded.lower().endswith(".exe"):
-        found_exe = shutil.which(f"{expanded}.exe")
-        if found_exe:
-            return found_exe
-    return expanded
-
-
-def _piper_binary_ready(path: str) -> bool:
-    return bool(path and (os.path.isfile(path) or shutil.which(path)))
-
-
-AUDIO_OUTPUT_DIR = (
-    _resolve_path_from_backend_dir(os.getenv("AUDIO_OUTPUT_DIR", ""))
-    or str(default_audio_dir())
-)
-PIPER_MODEL_PATH = _resolve_path_from_backend_dir(os.getenv("PIPER_MODEL_PATH", ""))
-PIPER_MODELS_DIR = (
-    _resolve_path_from_backend_dir(os.getenv("PIPER_MODELS_DIR", ""))
-    or str(default_piper_models_dir())
-)
-PIPER_BIN = _resolve_piper_bin(PIPER_BIN_RAW)
 VOICE_AVATAR_MAP_PATH = (
     _resolve_path_from_backend_dir(os.getenv("VOICE_AVATAR_MAP_PATH", ""))
     or str(default_voice_avatar_map())
 )
 
-_voice_catalog_cache: list[dict[str, Any]] | None = None
 _voice_avatar_map_cache: dict[str, Any] | None = None
 
 
@@ -182,10 +103,12 @@ def reload_runtime_config() -> None:
     global MODEL_API_BASE, MODEL_API_KEY, MODEL_NAME, MODEL_TIMEOUT_SECONDS
     global MODEL_MAX_RETRIES, MODEL_TEMPERATURE, MODEL_MAX_TOKENS
     global SOCIAL_EMERGENCY_NUMBER, RESEARCHER_NUMBER
-    global PIPER_BIN_RAW, PIPER_SPEAKER_ID, PIPER_ALWAYS_SPEAKER, PIPER_TIMEOUT_SECONDS
-    global AUDIO_OUTPUT_DIR, PIPER_MODEL_PATH, PIPER_MODELS_DIR, PIPER_BIN
-    global VOICE_AVATAR_MAP_PATH, _voice_catalog_cache, _voice_avatar_map_cache
+    global VOICE_AVATAR_MAP_PATH, _voice_avatar_map_cache
+    global _BACKEND_DIR, _dev_env
 
+    load_application_env()
+    _BACKEND_DIR = str(env_path_anchor())
+    _dev_env = find_dev_backend_env_file()
     MODEL_API_BASE = os.getenv("MODEL_API_BASE", "http://127.0.0.1:11434/v1")
     MODEL_API_KEY = os.getenv("MODEL_API_KEY", "local-key")
     MODEL_NAME = os.getenv("MODEL_NAME", "iranian-model")
@@ -195,68 +118,14 @@ def reload_runtime_config() -> None:
     MODEL_MAX_TOKENS = int(os.getenv("MODEL_MAX_TOKENS", "380"))
     SOCIAL_EMERGENCY_NUMBER = _env_trim(os.getenv("SOCIAL_EMERGENCY_NUMBER"), "123")
     RESEARCHER_NUMBER = _env_trim(os.getenv("RESEARCHER_NUMBER"), "09373759943")
-    PIPER_BIN_RAW = _env_trim(os.getenv("PIPER_BIN"), "piper")
-    PIPER_SPEAKER_ID = os.getenv("PIPER_SPEAKER_ID", "")
-    PIPER_ALWAYS_SPEAKER = _env_trim(os.getenv("PIPER_ALWAYS_SPEAKER"), "").lower() in (
-        "1",
-        "true",
-        "yes",
-    )
-    PIPER_TIMEOUT_SECONDS = int(os.getenv("PIPER_TIMEOUT_SECONDS", "30"))
-    AUDIO_OUTPUT_DIR = (
-        _resolve_path_from_backend_dir(os.getenv("AUDIO_OUTPUT_DIR", ""))
-        or str(default_audio_dir())
-    )
-    PIPER_MODEL_PATH = _resolve_path_from_backend_dir(os.getenv("PIPER_MODEL_PATH", ""))
-    PIPER_MODELS_DIR = (
-        _resolve_path_from_backend_dir(os.getenv("PIPER_MODELS_DIR", ""))
-        or str(default_piper_models_dir())
-    )
-    PIPER_BIN = _resolve_piper_bin(PIPER_BIN_RAW)
     VOICE_AVATAR_MAP_PATH = (
         _resolve_path_from_backend_dir(os.getenv("VOICE_AVATAR_MAP_PATH", ""))
         or str(default_voice_avatar_map())
     )
-    _voice_catalog_cache = None
+    tts.reload_tts_config()
+    stt.reload_stt_config()
+    rhubarb.reload_rhubarb_config()
     _voice_avatar_map_cache = None
-
-
-def _piper_model_onnx_exists() -> bool:
-    return bool(PIPER_MODEL_PATH and os.path.isfile(PIPER_MODEL_PATH))
-
-
-def _piper_model_json_exists() -> bool:
-    return bool(PIPER_MODEL_PATH and os.path.isfile(f"{PIPER_MODEL_PATH}.json"))
-
-
-def _infer_voice_locale(voice_id: str, meta: dict[str, Any]) -> Literal["fa", "en"]:
-    lang = meta.get("language") if isinstance(meta.get("language"), dict) else {}
-    code = str(lang.get("code", "")).lower()
-    family = str(lang.get("family", "")).lower()
-    if family == "fa" or code.startswith("fa"):
-        return "fa"
-    if family == "en" or code.startswith("en"):
-        return "en"
-    vid = voice_id.lower()
-    if vid.startswith("fa_ir") or vid.startswith("fa-") or vid.startswith("fa_"):
-        return "fa"
-    if vid.startswith("en_") or vid.startswith("en-"):
-        return "en"
-    if "en" in vid and "fa" not in vid[:4]:
-        return "en"
-    return "fa"
-
-
-def _voice_display_label(meta: dict[str, Any], voice_id: str) -> str:
-    lang = meta.get("language") if isinstance(meta.get("language"), dict) else {}
-    native = str(lang.get("name_native") or lang.get("name_english") or "").strip()
-    dataset = str(meta.get("dataset") or "").strip()
-    audio = meta.get("audio") if isinstance(meta.get("audio"), dict) else {}
-    quality = str(audio.get("quality") or "").strip()
-    bits = [b for b in (native, dataset, quality) if b]
-    if bits:
-        return " · ".join(bits)
-    return voice_id.replace("_", " ")
 
 
 def _load_voice_avatar_map_file() -> dict[str, Any]:
@@ -303,99 +172,36 @@ def _voice_age_for_voice_id(voice_id: str) -> Literal["child", "young", "old"]:
     return va  # type: ignore[return-value]
 
 
-def _build_voice_catalog() -> list[dict[str, Any]]:
-    catalog: list[dict[str, Any]] = []
-    seen: set[str] = set()
-
-    def add_voice(onnx_path: str) -> None:
-        if not onnx_path or not os.path.isfile(onnx_path):
-            return
-        voice_id = os.path.splitext(os.path.basename(onnx_path))[0]
-        if voice_id in seen:
-            return
-        json_path = f"{onnx_path}.json"
-        if not os.path.isfile(json_path):
-            return
-        meta: dict[str, Any] = {}
-        try:
-            with open(json_path, encoding="utf-8") as handle:
-                loaded = json.load(handle)
-                if isinstance(loaded, dict):
-                    meta = loaded
-        except (OSError, ValueError, TypeError):
-            meta = {}
-        locale = _infer_voice_locale(voice_id, meta)
-        issues = _validate_voice_meta(meta)
-        try:
-            num_sp = int(meta.get("num_speakers", 1))
-        except (TypeError, ValueError):
-            num_sp = 1
-        sp_map = meta.get("speaker_id_map")
-        named_count = len(sp_map) if isinstance(sp_map, dict) else 0
-        voice_age = _voice_age_for_voice_id(voice_id)
-        catalog.append(
-            {
-                "id": voice_id,
-                "label": _voice_display_label(meta, voice_id),
-                "locale": locale,
-                "path": onnx_path,
-                "issues": issues,
-                "numSpeakers": num_sp,
-                "namedSpeakerCount": named_count,
-                "voiceAge": voice_age,
-            }
-        )
-        seen.add(voice_id)
-
-    if os.path.isdir(PIPER_MODELS_DIR):
-        for entry in sorted(os.listdir(PIPER_MODELS_DIR)):
-            if not entry.endswith(".onnx"):
-                continue
-            add_voice(os.path.join(PIPER_MODELS_DIR, entry))
-    if PIPER_MODEL_PATH:
-        add_voice(PIPER_MODEL_PATH)
-
-    catalog.sort(key=lambda row: (row["locale"], row["id"].lower()))
-    return catalog
-
-
-def voice_catalog() -> list[dict[str, Any]]:
-    global _voice_catalog_cache
-    if _voice_catalog_cache is None:
-        _voice_catalog_cache = _build_voice_catalog()
-    return _voice_catalog_cache
-
-
-def _tts_stack_ready() -> bool:
-    if not _piper_binary_ready(PIPER_BIN):
-        return False
-    voices = voice_catalog()
-    return any(os.path.isfile(v["path"]) and os.path.isfile(f"{v['path']}.json") for v in voices)
-
-
 _UI_ROOT = str(default_ui_root())
 
 SYSTEM_PROMPT_FA = (
     "You are a supportive psychological guidance assistant for Iranian users. "
     "Always reply in Persian (Farsi) using Persian script. "
     "Do not use Arabic script or Arabic dialect; do not switch to English unless the user explicitly asks for English. "
-    "Be empathetic and practical. Do not diagnose. "
-    "For high-risk self-harm content, advise urgent professional/emergency help in Persian. "
-    f"When appropriate (especially in crises or when the user needs human contact), you may share: "
-    f"شماره اورژانس اجتماعی {SOCIAL_EMERGENCY_NUMBER}، شماره پژوهشگر {RESEARCHER_NUMBER}. "
-    "Keep every reply short: aim for about 3–6 short sentences unless the user explicitly asks for a longer explanation. "
-    "No long essays, no numbered lists longer than five items, and no repeating the same idea in different words."
+    "PRIMARY STYLE (highest priority): follow the FAQ conversational roadmap when it is attached — "
+    "short, focused clarifying questions that gently explore what the user said, "
+    "like a step-by-step guide rather than a lecture or long empathy speech. "
+    "If the user's topic matches a FAQ example, stay on that path (probe with one clear question). "
+    "Be warm and practical, but keep the FAQ question-led structure first. "
+    "Vary wording; do not diagnose. "
+    "Do NOT give phone numbers or contact lines in normal conversation. "
+    "Only mention emergency or researcher numbers if the user explicitly asks how to reach help "
+    "or describes immediate self-harm or suicide intent. "
+    "Keep every reply short: about 1–3 sentences unless the user explicitly asks for more. "
+    "Prefer ending with a single clear question. No long essays or numbered lists."
 )
 
 SYSTEM_PROMPT_EN = (
     "You are a supportive psychological guidance assistant. "
     "Always reply in clear English only. Do not use Persian or other languages unless the user explicitly asks to switch. "
-    "Be empathetic and practical. Do not diagnose. "
-    "For high-risk self-harm content, advise urgent professional or emergency help in English. "
-    f"When appropriate (especially in crises or when the user needs human contact), you may share: "
-    f"Social Emergency number {SOCIAL_EMERGENCY_NUMBER}, Researcher number {RESEARCHER_NUMBER}. "
-    "Keep every reply short: aim for about 3–6 short sentences unless the user explicitly asks for more depth. "
-    "No long essays, no numbered lists longer than five items, and no repeating the same idea in different words."
+    "Be warm, conversational, and practical — like a thoughtful counselor in chat, not a formal brochure. "
+    "Vary your openings and phrasing; avoid repeating the same empathy formulas in every reply. "
+    "Do not diagnose. "
+    "Do NOT give phone numbers or contact lines in normal conversation. "
+    "Only mention emergency or researcher numbers if the user explicitly asks how to reach help "
+    "or describes immediate self-harm or suicide intent. "
+    "Keep every reply short: about 2–5 sentences unless the user explicitly asks for more. "
+    "No long essays or numbered lists."
 )
 
 _COMPACT_RETRY_SUFFIX_FA = (
@@ -422,6 +228,20 @@ HIGH_RISK_TERMS = [
     "می خواهم بمیرم",
     "زندگی را تمام",
     "آسیب به خودم",
+]
+
+CONTACT_REQUEST_TERMS = [
+    "شماره",
+    "تماس",
+    "تلفن",
+    "پژوهشگر",
+    "اورژانس",
+    "number",
+    "contact",
+    "call",
+    "phone",
+    "reach",
+    "hotline",
 ]
 
 ESCALATION_RESPONSE_FA = (
@@ -475,7 +295,7 @@ _EMOJI_RE = re.compile(
 
 
 def _strip_for_tts(text: str) -> str:
-    """Remove emoji, markdown, and common stage directions so Piper speaks natural language only."""
+    """Remove emoji, markdown, and common stage directions for natural speech."""
     t = (text or "").strip()
     if not t:
         return ""
@@ -505,43 +325,12 @@ def _tts_fallback_line(locale: Literal["fa", "en"]) -> str:
     )
 
 
-def _validate_voice_meta(meta: dict[str, Any]) -> list[str]:
-    issues: list[str] = []
-    if not isinstance(meta.get("language"), dict):
-        issues.append("missing language")
-    else:
-        lang = meta["language"]
-        if not str(lang.get("code") or lang.get("family") or "").strip():
-            issues.append("language.code/family empty")
-    audio = meta.get("audio")
-    if not isinstance(audio, dict):
-        issues.append("missing audio block")
-    else:
-        try:
-            sr = int(audio.get("sample_rate", 0))
-            if sr <= 0:
-                issues.append("audio.sample_rate invalid")
-        except (TypeError, ValueError):
-            issues.append("audio.sample_rate invalid")
-    return issues
-
-
-def _length_scale_for_speaking_speed(speed: Literal["low", "medium", "high"]) -> float:
-    # Piper: length_scale > 1 is slower, < 1 is faster (default 1.0).
-    if speed == "low":
-        return 1.22
-    if speed == "high":
-        return 0.78
-    return 1.0
-
-
 def _http_status_should_retry(status: int) -> bool:
     if status in (408, 429):
         return True
     return 500 <= status <= 599
 
-os.makedirs(AUDIO_OUTPUT_DIR, exist_ok=True)
-app.mount("/audio", StaticFiles(directory=AUDIO_OUTPUT_DIR), name="audio")
+app.mount("/audio", StaticFiles(directory=tts.AUDIO_OUTPUT_DIR), name="audio")
 
 
 class ChatRequest(BaseModel):
@@ -549,7 +338,7 @@ class ChatRequest(BaseModel):
     userText: str = Field(min_length=1)
     emotionHint: str | None = None
     locale: Literal["fa", "en"] = "fa"
-    voiceId: str | None = Field(default=None, description="Piper voice id; must match locale")
+    voiceId: str | None = Field(default=None, description="OpenAI-compatible TTS voice id")
     speakingSpeed: Literal["low", "medium", "high"] = "medium"
     avatarFaceAge: Literal["child", "young", "old"] = "young"
 
@@ -572,74 +361,22 @@ EVAL_STATS = {
     "highRiskRequests": 0,
     "avgModelMs": 0.0,
     "avgTtsMs": 0.0,
+    "avgRhubarbMs": 0.0,
     "avgTotalMs": 0.0,
     "avgAudioDurationMs": 0.0,
 }
 
 
-def _get_audio_duration_ms(audio_file_path: str) -> int:
-    with wave.open(audio_file_path, "rb") as wav_file:
-        frames = wav_file.getnframes()
-        frame_rate = wav_file.getframerate()
-    if frame_rate <= 0:
-        return 1200
-    return max(500, int((frames / frame_rate) * 1000))
-
-
-def _classify_viseme(char: str) -> tuple[str, float]:
-    if char.isascii():
-        x = char.lower()
-        if x in "mbp":
-            return ("viseme_closed", 0.9)
-        if x in "fv":
-            return ("viseme_fv", 0.8)
-        if x in "aeiouy":
-            return ("viseme_open", 0.9)
-        if x in "shtdjwcngrlkzxq":
-            return ("viseme_tight", 0.7)
-        return ("viseme_open", 0.65)
-    if char in "مبپ":
-        return ("viseme_closed", 0.9)
-    if char in "فوق":
-        return ("viseme_fv", 0.8)
-    if char in "اآیوeao":
-        return ("viseme_open", 0.9)
-    if char in "سشزژتدnlr":
-        return ("viseme_tight", 0.7)
-    return ("viseme_open", 0.65)
-
-
-def _build_viseme_timeline(text: str, duration_ms: int) -> list[VisemeItem]:
-    chars = [char for char in text if not char.isspace()]
-    if not chars:
-        return [VisemeItem(startMs=0, endMs=duration_ms, viseme="viseme_closed", weight=0.7)]
-
-    unit = max(55, duration_ms // len(chars))
-    cursor = 0
-    timeline: list[VisemeItem] = []
-    for char in chars:
-        viseme, weight = _classify_viseme(char)
-        start_ms = cursor
-        end_ms = min(duration_ms, start_ms + unit)
-        if end_ms <= start_ms:
-            end_ms = min(duration_ms, start_ms + 40)
-        timeline.append(
-            VisemeItem(startMs=start_ms, endMs=end_ms, viseme=viseme, weight=weight)
+def _visemes_from_rows(rows: list[dict[str, Any]]) -> list[VisemeItem]:
+    return [
+        VisemeItem(
+            startMs=int(row["startMs"]),
+            endMs=int(row["endMs"]),
+            viseme=str(row["viseme"]),
+            weight=float(row["weight"]),
         )
-        cursor = end_ms
-        if cursor >= duration_ms:
-            break
-
-    if timeline and timeline[-1].endMs < duration_ms:
-        timeline.append(
-            VisemeItem(
-                startMs=timeline[-1].endMs,
-                endMs=duration_ms,
-                viseme="viseme_closed",
-                weight=0.75,
-            )
-        )
-    return timeline
+        for row in rows
+    ]
 
 
 def _extract_assistant_text(model_payload: dict[str, Any]) -> str:
@@ -752,6 +489,28 @@ def _is_high_risk_text(text: str) -> bool:
     return any(term in lowered for term in HIGH_RISK_TERMS)
 
 
+def _user_wants_contact_info(text: str) -> bool:
+    lowered = text.casefold()
+    return any(term in lowered for term in CONTACT_REQUEST_TERMS)
+
+
+def _strip_unwanted_contact_mentions(text: str) -> str:
+    """Remove configured contact numbers when the model adds them without cause."""
+    if not text:
+        return text
+    numbers = {SOCIAL_EMERGENCY_NUMBER, RESEARCHER_NUMBER}
+    sentences = re.split(r"(?<=[.!?؟۔…؛])\s+", text.strip())
+    kept: list[str] = []
+    for sentence in sentences:
+        if not sentence.strip():
+            continue
+        if any(number in sentence for number in numbers if number):
+            continue
+        kept.append(sentence.strip())
+    cleaned = " ".join(kept).strip()
+    return cleaned or text.strip()
+
+
 def _needs_diagnostic_safety_rewrite(text: str) -> bool:
     lowered = text.casefold()
     return any(term in lowered for term in DIAGNOSTIC_BLOCK_TERMS)
@@ -773,138 +532,6 @@ def _safe_non_diagnostic_rewrite(original_text: str, locale: Literal["fa", "en"]
     )
 
 
-def _piper_windows_exit_hint(returncode: int) -> str:
-    if os.name != "nt":
-        return ""
-    hints: dict[int, str] = {
-        # 0xC0000135 STATUS_DLL_NOT_FOUND — Piper exits before printing stderr
-        3221225781: (
-            " Windows NTSTATUS 0xC0000135 (DLL could not load): unpack the official Piper "
-            "Windows amd64 release so piper.exe and every shipped .dll stay in the same folder; "
-            "install Microsoft Visual C++ Redistributable 2015–2022 (x64); "
-            "do not mix 32-bit and 64-bit binaries."
-        ),
-        3221225477: (
-            " Windows NTSTATUS 0xC0000005 (access violation): incompatible ONNX/onnxruntime "
-            "or corrupted Piper install."
-        ),
-    }
-    return hints.get(returncode, "")
-
-
-def _piper_speaker_cli_args(num_speakers: int, named_speaker_count: int) -> list[str]:
-    """Piper multi-speaker ONNX models require --speaker (sid). Single-speaker usually omits it."""
-    sid = _env_trim(os.getenv("PIPER_SPEAKER_ID"), "")
-    if sid:
-        return ["--speaker", sid]
-    needs_default = (
-        num_speakers > 1
-        or named_speaker_count > 0
-        or PIPER_ALWAYS_SPEAKER
-    )
-    if needs_default:
-        return ["--speaker", "0"]
-    return []
-
-
-def _synthesize_with_piper(
-    text: str,
-    model_path: str,
-    length_scale: float,
-    num_speakers: int = 1,
-    named_speaker_count: int = 0,
-) -> tuple[str, str]:
-    if not model_path:
-        raise RuntimeError("No Piper model path selected.")
-    if not os.path.isfile(model_path):
-        raise RuntimeError(f"Piper model file missing: {model_path}")
-    onnx_json = f"{model_path}.json"
-    if not os.path.isfile(onnx_json):
-        raise RuntimeError(f"Piper model config missing next to ONNX: {onnx_json}")
-    if not _piper_binary_ready(PIPER_BIN):
-        tip = (
-            f" Set PIPER_BIN in backend/.env to piper.exe (raw={PIPER_BIN_RAW!r}, resolved={PIPER_BIN!r})."
-            if os.name == "nt"
-            else f" Set PIPER_BIN to the Piper executable path or install Piper on PATH "
-            f"(raw={PIPER_BIN_RAW!r}, resolved={PIPER_BIN!r})."
-        )
-        raise RuntimeError("Piper executable not found." + tip)
-
-    output_name = f"tts_{uuid4().hex}.wav"
-    output_file = os.path.join(AUDIO_OUTPUT_DIR, output_name)
-
-    cmd = [PIPER_BIN, "--model", model_path, "--output_file", output_file]
-    cmd.extend(["--length_scale", str(length_scale)])
-    cmd.extend(_piper_speaker_cli_args(num_speakers, named_speaker_count))
-    if os.getenv("PIPER_DEBUG", "").strip().lower() in ("1", "true", "yes"):
-        cmd.append("--debug")
-
-    run_env = os.environ.copy()
-    piper_cwd: str | None = None
-    if os.path.isfile(PIPER_BIN):
-        piper_home = os.path.dirname(os.path.abspath(PIPER_BIN))
-        piper_cwd = piper_home
-        run_env["PATH"] = piper_home + os.pathsep + run_env.get("PATH", "")
-
-    try:
-        subprocess.run(
-            cmd,
-            input=text,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            check=True,
-            capture_output=True,
-            timeout=PIPER_TIMEOUT_SECONDS,
-            cwd=piper_cwd,
-            env=run_env,
-        )
-    except FileNotFoundError as error:
-        raise RuntimeError(
-            "Piper binary not found when launching subprocess. "
-            f"Check PIPER_BIN (raw={PIPER_BIN_RAW!r}, resolved={PIPER_BIN!r}). "
-            "On Windows use the full path to piper.exe."
-        ) from error
-    except subprocess.TimeoutExpired as error:
-        raise RuntimeError("Piper synthesis timed out.") from error
-    except subprocess.CalledProcessError as error:
-        err_raw = error.stderr
-        out_raw = error.stdout
-        err_out = (
-            err_raw.strip()
-            if isinstance(err_raw, str)
-            else (err_raw or b"").decode("utf-8", errors="ignore").strip()
-        )
-        std_out = (
-            out_raw.strip()
-            if isinstance(out_raw, str)
-            else (out_raw or b"").decode("utf-8", errors="ignore").strip()
-        )
-        detail_parts = [f"exit_code={error.returncode}"]
-        if err_out:
-            detail_parts.append(f"stderr={err_out}")
-        if std_out:
-            detail_parts.append(f"stdout={std_out}")
-        hint = (
-            " Empty Piper stderr/stdout: try running piper.exe manually from CMD; "
-            "set PIPER_DEBUG=1 in .env for --debug."
-            if not err_out and not std_out
-            else ""
-        )
-        win_hint = _piper_windows_exit_hint(error.returncode)
-        sid_hint = ""
-        if "sid" in err_out.lower() or "missing input" in err_out.lower():
-            sid_hint = (
-                " This ONNX voice expects a speaker id: set PIPER_SPEAKER_ID (e.g. 0) in .env, "
-                "or set PIPER_ALWAYS_SPEAKER=1 to always pass --speaker 0 when the model omits num_speakers."
-            )
-        raise RuntimeError(
-            "Piper synthesis failed: " + "; ".join(detail_parts) + hint + win_hint + sid_hint
-        ) from error
-
-    return (f"/audio/{output_name}", output_file)
-
-
 def _update_running_average(old_avg: float, count: int, new_value: float) -> float:
     if count <= 1:
         return float(new_value)
@@ -919,7 +546,20 @@ async def _post_chat_completion(
 ) -> dict[str, Any]:
     response = await client.post(url, headers=headers, json=payload)
     if response.status_code >= 400:
-        raise RuntimeError(f"Model API error — HTTP {response.status_code}: {response.text[:1500]}")
+        detail = response.text[:1500]
+        try:
+            body = response.json()
+            if isinstance(body, dict):
+                err = body.get("error")
+                if isinstance(err, dict) and err.get("message"):
+                    detail = str(err["message"])
+                elif body.get("message"):
+                    detail = str(body["message"])
+                elif body.get("detail"):
+                    detail = str(body["detail"])
+        except ValueError:
+            pass
+        raise RuntimeError(f"Model API error — HTTP {response.status_code}: {detail}")
     try:
         return response.json()
     except ValueError as exc:
@@ -1038,122 +678,124 @@ async def _call_llm(
 
 
 def _resolve_voice_entry(locale: Literal["fa", "en"], voice_id: str | None) -> dict[str, Any]:
-    catalog = voice_catalog()
-    if not catalog:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "No Piper voices found. Add .onnx and matching .onnx.json under PIPER_MODELS_DIR "
-                "or configure PIPER_MODEL_PATH."
-            ),
-        )
-    by_id = {row["id"]: row for row in catalog}
-    if voice_id and voice_id.strip():
-        stripped = voice_id.strip()
-        if stripped not in by_id:
-            raise HTTPException(status_code=400, detail=f"Unknown voiceId: {stripped}")
-        entry = by_id[stripped]
-        if entry["locale"] != locale:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Voice '{stripped}' is registered for locale '{entry['locale']}', not '{locale}'.",
-            )
-        return entry
-    env_key = "PIPER_VOICE_ID_EN" if locale == "en" else "PIPER_VOICE_ID_FA"
-    preferred = _env_trim(os.getenv(env_key), "")
-    if preferred and preferred in by_id and by_id[preferred]["locale"] == locale:
-        return by_id[preferred]
-    for row in catalog:
-        if row["locale"] == locale:
-            return row
-    raise HTTPException(
-        status_code=400,
-        detail=(
-            f"No Piper voice available for locale '{locale}'. "
-            f"Install a matching English or Persian Piper model under {PIPER_MODELS_DIR}."
-        ),
-    )
+    try:
+        entry = tts.resolve_voice_entry(locale, voice_id)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    row = dict(entry)
+    row["voiceAge"] = _voice_age_for_voice_id(str(row["id"]))
+    return row
+
+
+def _tts_config_suspicious() -> bool:
+    base = (tts.TTS_API_BASE or "").lower()
+    local = "127.0.0.1" in base or "localhost" in base
+    key = (tts.TTS_API_KEY or "").strip()
+    return not local and key in ("", "local-key", "api-key")
+
+
+def _stt_config_suspicious() -> bool:
+    base = (stt.STT_API_BASE or "").lower()
+    local = "127.0.0.1" in base or "localhost" in base
+    key = (stt.STT_API_KEY or "").strip()
+    return not local and key in ("", "local-key", "api-key")
+
+
+def _mask_api_key(key: str) -> str:
+    text = (key or "").strip()
+    if not text or text in ("local-key", "api-key"):
+        return "(default placeholder — set MODEL_API_KEY)"
+    if len(text) <= 10:
+        return text[:3] + "…"
+    return f"{text[:8]}…{text[-4:]}"
+
+
+def _llm_config_suspicious() -> bool:
+    base = (MODEL_API_BASE or "").lower()
+    local = "127.0.0.1" in base or "localhost" in base
+    key = (MODEL_API_KEY or "").strip()
+    return not local and key in ("", "local-key", "api-key")
 
 
 @app.get("/health")
 def health() -> dict:
-    catalog = voice_catalog()
-    voice_paths_ok = sum(
-        1
-        for v in catalog
-        if os.path.isfile(v["path"]) and os.path.isfile(f"{v['path']}.json")
-    )
-    piper_ok = _piper_binary_ready(PIPER_BIN)
-    onnx_ok = _piper_model_onnx_exists()
-    json_ok = _piper_model_json_exists()
-    tts_ok = _tts_stack_ready()
-    rag_state = getattr(app.state, "rag", None) if hasattr(app, "state") else None
+    catalog = tts.voice_catalog()
+    tts_ok = tts.tts_stack_ready()
+    guidance_count = 0
+    try:
+        from app.guidance import load_faq_records
+
+        guidance_count = len(load_faq_records())
+    except (OSError, ValueError):
+        pass
+    status = tts.tts_status()
+    stt_ok = stt.stt_stack_ready()
+    stt_status = stt.stt_status()
     return {
         "status": "ok",
         "mode": "offline",
         "service": "smart-avatar-backend",
         "modelBase": MODEL_API_BASE,
         "modelName": MODEL_NAME,
-        "rag": rag_state,
+        "envSource": str(_dev_env) if _dev_env and _dev_env.is_file() else str(app_data_dir() / ".env"),
+        "envFilesLoaded": [str(path) for path in loaded_env_files()],
+        "personaBuildId": os.getenv("PERSONA_BUILD_ID", "").strip(),
+        "modelApiKeyHint": _mask_api_key(MODEL_API_KEY),
+        "llmConfigSuspicious": _llm_config_suspicious(),
+        "ttsConfigSuspicious": _tts_config_suspicious(),
+        "sttConfigSuspicious": _stt_config_suspicious(),
+        "guidanceExamples": guidance_count,
         "ttsConfigured": tts_ok,
+        "sttConfigured": stt_ok,
+        "rhubarbConfigured": rhubarb.rhubarb_ready(),
         "tts": {
-            "piperExecutableOk": piper_ok,
-            "piperBinRaw": PIPER_BIN_RAW,
-            "piperBinResolved": PIPER_BIN,
-            "modelOnnxFound": onnx_ok,
-            "modelOnnxJsonFound": json_ok,
+            **status,
             "voiceCount": len(catalog),
-            "voicesWithConfigOk": voice_paths_ok,
-            "voicesWithMetaIssues": sum(1 for v in catalog if v.get("issues")),
-            "modelsDir": PIPER_MODELS_DIR,
+            "ttsApiKeyHint": _mask_api_key(tts.TTS_API_KEY),
         },
+        "stt": {
+            **stt_status,
+            "sttApiKeyHint": _mask_api_key(stt.STT_API_KEY),
+        },
+        "rhubarb": rhubarb.rhubarb_status(),
     }
 
 
-@app.get("/rag/status")
-def rag_status() -> dict[str, Any]:
-    try:
-        from app.rag.config import load_rag_settings
-        from app.rag.loader import load_faq_records
-        from app.rag.service import get_rag_service
-        from app.rag.store import index_ready
+class TranscribeResponse(BaseModel):
+    text: str
+    locale: Literal["fa", "en"]
+    provider: str = "openai-compatible"
 
-        settings = load_rag_settings()
-        svc = get_rag_service()
-        faq_count = 0
-        if os.path.isfile(settings.faq_path):
-            faq_count = len(load_faq_records(settings.faq_path))
-        startup = getattr(app.state, "rag", None)
-        return {
-            "enabled": settings.enabled,
-            "buildOnStartup": settings.build_on_startup,
-            "indexReady": index_ready(settings.index_dir),
-            "faqPath": settings.faq_path,
-            "indexDir": settings.index_dir,
-            "faqRecordCount": faq_count,
-            "topK": settings.top_k,
-            "minScore": settings.min_score,
-            "embeddingModel": settings.embedding_model,
-            "embeddingApiBase": settings.embedding_api_base,
-            "embeddingConfigured": bool(
-                settings.embedding_api_base and settings.embedding_api_key
-            ),
-            "startup": startup,
-        }
-    except Exception as error:
-        return {"enabled": False, "error": str(error)[:400]}
+
+@app.post("/chat/transcribe", response_model=TranscribeResponse)
+async def chat_transcribe(
+    file: UploadFile = File(...),
+    locale: Literal["fa", "en"] = Form("fa"),
+) -> TranscribeResponse:
+    try:
+        audio_bytes = await file.read()
+        text = await stt.transcribe_audio(
+            audio_bytes,
+            filename=file.filename or "speech.webm",
+            content_type=file.content_type,
+            locale=locale,
+        )
+    except RuntimeError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    return TranscribeResponse(text=text, locale=locale)
 
 
 @app.get("/config")
 def app_config() -> dict[str, Any]:
-    catalog = voice_catalog()
+    catalog = tts.voice_catalog()
     voices = [
         {
             "id": v["id"],
             "label": v["label"],
-            "locale": v["locale"],
-            "configOk": len(v.get("issues", [])) == 0,
-            "voiceAge": v.get("voiceAge", "young"),
+            "locale": "any",
+            "configOk": True,
+            "voiceAge": _voice_age_for_voice_id(str(v["id"])),
+            "gender": str(v.get("gender") or "female"),
         }
         for v in catalog
     ]
@@ -1177,14 +819,10 @@ def get_settings() -> dict[str, Any]:
 
 @app.put("/settings")
 def put_settings(payload: SettingsUpdateRequest) -> dict[str, Any]:
-    from app.settings_store import get_snapshot, persist_updates
+    from app.settings_store import get_snapshot
 
-    if not payload.values:
-        raise HTTPException(status_code=400, detail="No settings provided.")
-    written = persist_updates(payload.values)
-    reload_runtime_config()
     snapshot = get_snapshot()
-    snapshot["savedKeys"] = written
+    snapshot["savedKeys"] = []
     return snapshot
 
 
@@ -1194,20 +832,18 @@ async def chat_respond(payload: ChatRequest) -> ChatResponse:
     locale: Literal["fa", "en"] = payload.locale
     speaking_speed: Literal["low", "medium", "high"] = payload.speakingSpeed
     face_age: Literal["child", "young", "old"] = payload.avatarFaceAge
-    length_scale = _length_scale_for_speaking_speed(speaking_speed)
     base_system = SYSTEM_PROMPT_FA if locale == "fa" else SYSTEM_PROMPT_EN
     system_prompt = _system_prompt_with_length_cap(base_system, locale)
     escalation = ESCALATION_RESPONSE_FA if locale == "fa" else ESCALATION_RESPONSE_EN
 
     voice_entry = _resolve_voice_entry(locale, payload.voiceId)
-    voice_path = str(voice_entry["path"])
     voice_label = str(voice_entry["label"])
     resolved_voice_id = str(voice_entry["id"])
 
     is_high_risk = _is_high_risk_text(payload.userText)
+    user_wants_contact = _user_wants_contact_info(payload.userText)
     model_attempts = 0
     llm_meta: dict[str, Any] = {}
-    rag_meta: dict[str, Any] = {"enabled": False}
 
     try:
         model_started = time.perf_counter()
@@ -1215,30 +851,20 @@ async def chat_respond(payload: ChatRequest) -> ChatResponse:
             assistant_text = escalation
             model_latency_ms = 0
         else:
-            prompt_for_llm = system_prompt
-            try:
-                from app.rag.config import load_rag_settings
-                from app.rag.service import get_rag_service
+            from app.guidance import get_guidance_context
 
-                rag_settings = load_rag_settings()
-                if rag_settings.enabled:
-                    rag_svc = get_rag_service()
-                    rag_context, rag_meta = await asyncio.to_thread(
-                        rag_svc.retrieve,
-                        payload.userText,
-                        locale=locale,
-                    )
-                    rag_meta["enabled"] = True
-                    if rag_context:
-                        prompt_for_llm = f"{system_prompt}\n\n{rag_context}"
-            except Exception as rag_error:
-                rag_meta = {
-                    "enabled": True,
-                    "error": str(rag_error)[:400],
-                }
+            guidance_context = get_guidance_context(locale, payload.userText)
+            # Put the FAQ roadmap first so the model treats it as the primary guide
+            prompt_for_llm = (
+                f"{guidance_context}\n\n{system_prompt}"
+                if guidance_context
+                else system_prompt
+            )
             assistant_text, model_attempts, llm_meta = await _call_llm(
                 payload.userText, prompt_for_llm, locale=locale
             )
+            if not is_high_risk and not user_wants_contact:
+                assistant_text = _strip_unwanted_contact_mentions(assistant_text)
             model_latency_ms = int((time.perf_counter() - model_started) * 1000)
     except RuntimeError as error:
         raise HTTPException(status_code=502, detail=str(error)) from error
@@ -1254,19 +880,26 @@ async def chat_respond(payload: ChatRequest) -> ChatResponse:
 
     try:
         tts_started = time.perf_counter()
-        audio_path, audio_file_path = _synthesize_with_piper(
+        audio_path, audio_file_path, duration_ms = await tts.synthesize_speech(
             tts_text,
-            voice_path,
-            length_scale,
-            int(voice_entry.get("numSpeakers") or 1),
-            int(voice_entry.get("namedSpeakerCount") or 0),
+            resolved_voice_id,
+            speaking_speed,
         )
         tts_latency_ms = int((time.perf_counter() - tts_started) * 1000)
     except RuntimeError as error:
         raise HTTPException(status_code=502, detail=str(error)) from error
 
-    duration_ms = _get_audio_duration_ms(audio_file_path)
-    visemes = _build_viseme_timeline(tts_text, duration_ms)
+    rhubarb_started = time.perf_counter()
+    viseme_rows, rhubarb_meta = await rhubarb.analyze_wav(
+        audio_file_path,
+        duration_ms=duration_ms,
+        dialog_text=tts_text,
+        locale=locale,
+    )
+    rhubarb_latency_ms = int((time.perf_counter() - rhubarb_started) * 1000)
+    if rhubarb_meta.get("latencyMs"):
+        rhubarb_latency_ms = int(rhubarb_meta["latencyMs"])
+    visemes = _visemes_from_rows(viseme_rows)
     total_latency_ms = int((time.perf_counter() - request_started) * 1000)
 
     EVAL_STATS["requests"] += 1
@@ -1278,6 +911,9 @@ async def chat_respond(payload: ChatRequest) -> ChatResponse:
     )
     EVAL_STATS["avgTtsMs"] = _update_running_average(
         EVAL_STATS["avgTtsMs"], request_count, float(tts_latency_ms)
+    )
+    EVAL_STATS["avgRhubarbMs"] = _update_running_average(
+        EVAL_STATS["avgRhubarbMs"], request_count, float(rhubarb_latency_ms)
     )
     EVAL_STATS["avgTotalMs"] = _update_running_average(
         EVAL_STATS["avgTotalMs"], request_count, float(total_latency_ms)
@@ -1298,23 +934,28 @@ async def chat_respond(payload: ChatRequest) -> ChatResponse:
             "voiceId": resolved_voice_id,
             "voiceLabel": voice_label,
             "speakingSpeed": speaking_speed,
-            "piperLengthScale": length_scale,
+            "ttsModel": tts.TTS_MODEL,
             "modelAttempts": model_attempts,
             "modelCompletion": llm_meta,
             "ttsSanitized": tts_was_sanitized,
             "durationMs": duration_ms,
+            "lipSync": {
+                **rhubarb_meta,
+                "latencyMs": rhubarb_latency_ms,
+            },
             "avatar": {
                 "voiceAge": str(voice_entry.get("voiceAge", "young")),
                 "faceAge": face_age,
             },
-            "rag": rag_meta,
             "latencyMs": {
                 "model": model_latency_ms,
                 "tts": tts_latency_ms,
+                "rhubarb": rhubarb_latency_ms,
                 "total": total_latency_ms,
             },
             "safety": {
                 "isHighRiskInput": is_high_risk,
+                "contactInfoRequested": user_wants_contact,
                 "diagnosticRewriteApplied": diagnostic_rewrite_applied,
             },
         },

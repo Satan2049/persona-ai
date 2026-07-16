@@ -5,7 +5,7 @@
 #   .\scripts\clean-temps.ps1 -Runtime     # also generated audio / RAG index
 #   .\scripts\clean-temps.ps1 -Deep        # also node_modules/
 #
-# Never removes: .venv, .env, piper_models/, piper/, source code.
+# Never removes: .venv, .env, tools/rhubarb/, source code.
 param(
     [switch]$Runtime,
     [switch]$Deep
@@ -89,7 +89,7 @@ if (Remove-RelPath "dist\release") { $removed++ }
 
 # --- Optional runtime artifacts ---
 if ($Runtime) {
-    foreach ($rel in @("audio", "apps\backend\audio", "data\rag_index")) {
+    foreach ($rel in @("audio", "apps\backend\audio")) {
         if (Clear-DirKeepGitkeep $rel) { $removed++ }
     }
 }
@@ -107,4 +107,4 @@ if ($removed -eq 0) {
     Write-Host "Done. ($removed area(s) cleaned)"
 }
 
-Write-Host "Kept: apps/backend/.venv, .env, piper_models/, piper/, source."
+Write-Host "Kept: apps/backend/.venv, .env, tools/rhubarb/, source."

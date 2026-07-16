@@ -1,17 +1,18 @@
 # Persona AI Desktop
 
-Tauri 2 desktop shell for Persona AI. The shell spawns a **Python sidecar** (`persona-backend`) that runs the same FastAPI backend used in development.
+Tauri 2 desktop shell for Persona AI. On launch the shell **automatically spawns** a **Python sidecar** (`persona-backend`) in the background, waits for `/health`, injects the API URL into the UI, and kills the process when the app exits. The UI opens in **voice conversation** first.
 
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) 20+
 - [Rust](https://www.rust-lang.org/tools/install)
-- **Python 3.10–3.12** with `apps/backend` dependencies installed manually:
+- **Python 3.10–3.12** with `apps/backend` dependencies:
 
   ```bash
   cd apps/backend
   python -m venv .venv
-  .venv\Scripts\activate
+  # Windows: .venv\Scripts\activate
+  # Linux/macOS: source .venv/bin/activate
   pip install -r requirements-dev.txt
   ```
 
@@ -19,55 +20,39 @@ Tauri 2 desktop shell for Persona AI. The shell spawns a **Python sidecar** (`pe
 
 ## Build the sidecar
 
-Install Python deps first (see above), then from the repository root:
+**Windows** (from repo root):
 
 ```powershell
 npm run sidecar:build
 ```
 
-This installs `requirements-dev.txt` (via your configured pip index) and runs PyInstaller.
-
-This produces `apps/desktop/src-tauri/binaries/persona-backend-<target-triple>.exe` (Windows).
-
-## Generate icons
+**Linux / macOS:**
 
 ```bash
-cd apps/desktop
-npm install
-npm run icons
+chmod +x scripts/build-sidecar.sh
+./scripts/build-sidecar.sh
 ```
 
-Source artwork: `assets/icons/app-icon.svg` (exported to `app-icon-1024.png` via `scripts/export-app-icon.ps1`).
+On Windows, `scripts/prepare-sidecar-env.ps1` copies `apps/backend/.env` into the sidecar bundle as `runtime.env`.
 
-## Development
+Output: `apps/desktop/src-tauri/binaries/persona-backend-<target-triple>[.exe]`
 
-```bash
-npm install
-npm run sidecar:build
-npm run desktop:dev
+## Sync UI assets
+
+```powershell
+.\scripts\sync-desktop-ui.ps1
 ```
 
-The window loads a splash page, starts the sidecar on an ephemeral port, waits for `/health`, then navigates to the bundled UI.
+## Desktop build
 
-## Production build
-
-```bash
-npm run sidecar:build
+```powershell
 npm run desktop:build
 ```
 
-Installers are written under `apps/desktop/src-tauri/target/release/bundle/`.
+Windows installer: `apps/desktop/src-tauri/target/release/bundle/nsis/`
 
-## User data
+CI builds Linux (AppImage/deb) and macOS (DMG) — see `.github/workflows/desktop-linux.yml` and `desktop-macos.yml`.
 
-The desktop app stores writable files under:
+## Version
 
-| Platform | Path |
-|----------|------|
-| Windows | `%APPDATA%\PersonaAI\` |
-| macOS | `~/Library/Application Support/PersonaAI/` |
-| Linux | `~/.local/share/PersonaAI/` |
-
-Place Piper voice models in `%APPDATA%\PersonaAI\piper_models\` or configure `PIPER_MODELS_DIR` in **Settings** (saved to `%APPDATA%\PersonaAI\.env`).
-
-Full layout: [docs/desktop-data-layout.md](../../docs/desktop-data-layout.md).
+`1.3.2` — keep in sync with root `package.json`, `tauri.conf.json`, and `Cargo.toml`.

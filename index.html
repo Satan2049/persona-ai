@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Persona AI — an offline-first psychologist-style avatar with lip-sync, Piper TTS, and FAQ-grounded guidance in Persian and English."
+      content="Persona AI — voice-first psychologist-style avatar with GLB lip-sync, OpenAI-compatible TTS/STT, and FAQ-guided replies in Persian and English."
     />
     <title>Persona AI — Smart Psychologist Avatar</title>
     <link rel="icon" href="ui/favicon.svg" type="image/svg+xml" />
@@ -402,13 +402,12 @@
       <main>
         <section class="hero">
           <div>
-            <span class="eyebrow">Open source · Offline-first</span>
+            <span class="eyebrow">Open source · v1.3.2 · Voice-first</span>
             <h1>A supportive psychologist avatar with voice and lip-sync</h1>
             <p class="lead">
               Persona AI is a research demo: empathetic guidance in <strong>Persian</strong> and
-              <strong>English</strong>, powered by a local LLM, optional FAQ-grounded RAG, and
-              <a href="https://github.com/OHF-Voice/piper1-gpl" target="_blank" rel="noopener noreferrer">Piper</a>
-              text-to-speech — with a 2D avatar that speaks along.
+              <strong>English</strong>, powered by an OpenAI-compatible LLM, a FAQ conversational roadmap,
+              cloud or local TTS/STT — with a <strong>3D GLB avatar</strong> and Rhubarb lip-sync.
             </p>
             <div class="hero-actions">
               <a class="btn btn-primary" id="repoLink" href="#" target="_blank" rel="noopener noreferrer">
@@ -425,10 +424,10 @@
             <h2>Built with</h2>
             <ul class="stack-list">
               <li>FastAPI backend + bundled web UI</li>
-              <li>OpenAI-compatible chat &amp; embedding APIs</li>
-              <li>Piper TTS (piper1-gpl) — voices from Hugging Face</li>
-              <li>FAQ RAG over curated empathy prompts</li>
-              <li>Safety layer for high-risk content</li>
+              <li>OpenAI-compatible chat, TTS &amp; STT</li>
+              <li>Rhubarb lip-sync from WAV audio</li>
+              <li>3D GLB avatar (male / female)</li>
+              <li>FAQ roadmap + high-risk safety layer</li>
             </ul>
           </aside>
         </section>
@@ -442,12 +441,12 @@
               <p>Locale-locked system prompts keep Persian and English replies consistent with the UI language.</p>
             </article>
             <article class="card">
-              <h3>Speaking avatar</h3>
-              <p>Offline Piper voices, WAV playback, and viseme timelines drive lip-sync on a lightweight 2D face.</p>
+              <h3>Voice + 3D avatar</h3>
+              <p>Opens in voice mode. OpenAI-compatible TTS/STT and Rhubarb drive lip-sync on a GLB character.</p>
             </article>
             <article class="card">
-              <h3>Grounded &amp; safe</h3>
-              <p>Optional RAG over an FAQ dataset plus escalation paths with configurable emergency numbers.</p>
+              <h3>FAQ roadmap &amp; safe</h3>
+              <p>Bundled FAQ examples steer short clarifying questions, plus escalation paths with configurable emergency numbers.</p>
             </article>
           </div>
         </section>
@@ -471,11 +470,10 @@
             <article class="step">
               <div class="step-num" aria-hidden="true">2</div>
               <div>
-                <h3>Configure backend &amp; Piper</h3>
+                <h3>Configure backend &amp; TTS</h3>
                 <p>
-                  Copy <code>apps/backend/.env.example</code> to <code>apps/backend/.env</code>, set your LLM API, install
-                  <a href="https://github.com/OHF-Voice/piper1-gpl" target="_blank" rel="noopener noreferrer">Piper</a>,
-                  and download voice models into <code>piper_models/</code>. Full steps are in the README.
+                  Copy <code>apps/backend/.env.example</code> to <code>apps/backend/.env</code>, set your LLM and TTS API
+                  (<code>MODEL_*</code> and optional <code>TTS_*</code>). Full steps are in the README.
                 </p>
               </div>
             </article>
@@ -507,8 +505,6 @@
 
           <div class="links-row">
             <a class="btn btn-secondary" id="readmeLink" href="#" target="_blank" rel="noopener noreferrer">README</a>
-            <a class="btn btn-secondary" id="piperLink" href="https://github.com/OHF-Voice/piper1-gpl" target="_blank" rel="noopener noreferrer">Piper (piper1-gpl)</a>
-            <a class="btn btn-secondary" href="https://huggingface.co/rhasspy/piper-voices" target="_blank" rel="noopener noreferrer">Voice models</a>
           </div>
         </section>
       </main>

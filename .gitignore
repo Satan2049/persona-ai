@@ -35,13 +35,18 @@ apps/audio/*
 backend/audio/*
 !backend/audio/.gitkeep
 
-# Piper binary distribution (download separately)
+# Piper binary distribution (legacy — removed)
 piper/
 
-# Piper voice models (download separately)
+# Piper voice models (legacy — removed)
 piper_models/*
 !piper_models/.gitkeep
 !piper_models/README.md
+
+# Rhubarb Lip Sync binary (download via scripts/ensure-rhubarb.ps1)
+tools/rhubarb/
+tools/rhubarb-*.zip
+tools/rhubarb-extract/
 
 # RAG vector index
 data/rag_index/*
@@ -50,6 +55,7 @@ data/rag_index/*
 # Desktop / sidecar build outputs
 apps/desktop/sidecar/dist/
 apps/desktop/sidecar/build/
+apps/desktop/sidecar/build-env/
 apps/desktop/src-tauri/binaries/*
 !apps/desktop/src-tauri/binaries/.gitkeep
 apps/desktop/src-tauri/target/

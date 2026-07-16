@@ -22,6 +22,7 @@ if (-not (Test-Path $iconIco)) {
 Push-Location $Backend
 try {
     & (Join-Path $Root "scripts\stop-desktop-processes.ps1")
+    & (Join-Path $Root "scripts\prepare-sidecar-env.ps1")
 
     if (Test-Path ".venv\Scripts\python.exe") {
         $Python = ".venv\Scripts\python.exe"

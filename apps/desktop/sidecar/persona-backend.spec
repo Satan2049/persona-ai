@@ -12,6 +12,7 @@ BACKEND = ROOT / "apps" / "backend"
 UI = ROOT / "ui"
 DATA = ROOT / "data"
 CONFIG = ROOT / "assets" / "config"
+BUILD_ENV = Path(SPECPATH) / "build-env" / "runtime.env"
 ICON = ROOT / "apps" / "desktop" / "src-tauri" / "icons" / "icon.ico"
 
 datas = [
@@ -20,22 +21,22 @@ datas = [
     (str(CONFIG / "voice_avatar_map.json"), "config"),
     (str(CONFIG / "default.env"), "config"),
 ]
+RHUBARB = ROOT / "tools" / "rhubarb"
+if RHUBARB.is_dir() and (RHUBARB / "rhubarb.exe").is_file():
+    datas.append((str(RHUBARB), "tools/rhubarb"))
+if BUILD_ENV.is_file():
+    datas.append((str(BUILD_ENV), "config"))
 binaries = []
 hiddenimports = [
     "app.main",
     "app.paths",
     "app.env_bootstrap",
-    "app.rag",
-    "app.rag.bootstrap",
-    "app.rag.chunking",
-    "app.rag.composer",
-    "app.rag.config",
-    "app.rag.embeddings",
-    "app.rag.loader",
-    "app.rag.retriever",
-    "app.rag.service",
-    "app.rag.store",
-    "app.rag.types",
+    "app.guidance",
+    "app.tts",
+    "app.stt",
+    "app.rhubarb",
+    "multipart",
+    "multipart.multipart",
     "pydantic_core._pydantic_core",
     "uvicorn.logging",
     "uvicorn.loops",
@@ -51,7 +52,7 @@ hiddenimports = [
     "anyio._backends._asyncio",
 ]
 
-for package in ("pydantic_core", "pydantic", "fastapi", "starlette", "numpy"):
+for package in ("pydantic_core", "pydantic", "fastapi", "starlette"):
     pkg_datas, pkg_binaries, pkg_hidden = collect_all(package)
     datas += pkg_datas
     binaries += pkg_binaries

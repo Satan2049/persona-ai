@@ -1,83 +1,52 @@
 # Desktop & portable data layout
 
-Persona AI **does not ship** LLM weights, Piper voices, or Piper itself. After install or in a portable build, you add those yourself. The app stores **your settings and generated data** under a per-user folder.
+Persona AI ships primarily as a **Windows NSIS installer**; Linux and macOS bundles are produced by GitHub Actions. LLM and TTS credentials are **not** bundled — configure them in `.env`.
 
-## Where things live
+During Windows setup you can choose:
 
-| What | Installed desktop app | Dev server (`scripts/start-backend`) |
-|------|------------------------|--------------------------------------|
-| **Settings (`.env`)** | `%APPDATA%\PersonaAI\.env` | `apps/backend/.env` (fallback) + `%APPDATA%\PersonaAI\.env` if present |
-| **Piper voices** | `%APPDATA%\PersonaAI\piper_models\` | `piper_models/` at repo root (or path in `.env`) |
-| **Generated audio** | `%APPDATA%\PersonaAI\audio\` | `audio/` or AppData |
-| **RAG index** | `%APPDATA%\PersonaAI\rag_index\` | `data/rag_index/` or AppData |
-| **FAQ corpus** | Bundled inside sidecar (read-only) | `data/faq_dataset.json` |
-| **UI** | Bundled inside sidecar (read-only) | `ui/` |
+| Install scope | Default folder | Admin required |
+|---------------|----------------|----------------|
+| **Current user** (recommended) | `%LOCALAPPDATA%\Persona AI\` | No |
+| **All users** | `C:\Program Files\Persona AI\` | Yes |
 
-On Linux/macOS, AppData is `~/.local/share/PersonaAI/` or `~/Library/Application Support/PersonaAI/`.
+## Where things live (installed app)
 
-Configure everything from **Settings** in the app (saved to `%APPDATA%\PersonaAI\.env`).
+| What | Per-user install | All-users (Program Files) |
+|------|------------------|---------------------------|
+| **App + sidecar** | `%LOCALAPPDATA%\Persona AI\` | `C:\Program Files\Persona AI\` |
+| **Settings** | `%APPDATA%\PersonaAI\.env` | same |
+| **Generated TTS audio** | `%APPDATA%\PersonaAI\audio\` | same |
+| **Logs** | `%APPDATA%\PersonaAI\logs\` | same |
 
-## LLM models (Ollama, etc.)
+On each new sidecar build, `runtime.env` (snapshot of `apps/backend/.env` at build time) can refresh `%APPDATA%\PersonaAI\.env` when `PERSONA_BUILD_ID` changes.
 
-Persona AI talks to an **OpenAI-compatible HTTP API**. It does **not** download or store LLM weights.
+## LLM, TTS & STT
 
-1. Install [Ollama](https://ollama.com/) (or vLLM, a gateway, etc.) separately.
-2. Pull models there, e.g. `ollama pull your-model`.
-3. In **Settings → LLM**, set:
-   - `MODEL_API_BASE` → `http://127.0.0.1:11434/v1`
-   - `MODEL_NAME` → your Ollama model name
+Persona AI uses OpenAI-compatible HTTP APIs:
 
-Embeddings for RAG use the same pattern (**Settings → RAG**), e.g. `nomic-embed-text` on Ollama.
+- Chat: `MODEL_API_BASE` + `/chat/completions`
+- Speech: `TTS_API_BASE` (defaults to `MODEL_API_BASE`) + `/audio/speech`
+- Transcription: `STT_API_BASE` (defaults to TTS/MODEL base) + `/audio/transcriptions`
 
-## Piper TTS
+Set `MODEL_*` and optionally `TTS_*` / `STT_*` in `apps/backend/.env` before `npm run sidecar:build`, or edit `%APPDATA%\PersonaAI\.env` after install.
 
-| Piece | You provide | Typical location |
-|-------|-------------|------------------|
-| **Piper executable** | Download from [piper1-gpl](https://github.com/OHF-Voice/piper1-gpl) | e.g. `D:\tools\piper\piper.exe` → set in **Settings → Piper TTS** |
-| **Voice models** | `.onnx` + matching `.onnx.json` from [piper-voices](https://huggingface.co/rhasspy/piper-voices) | `%APPDATA%\PersonaAI\piper_models\` |
+## Dev server
 
-Example after install:
+| What | Location |
+|------|----------|
+| Backend `.env` | `apps/backend/.env` |
+| Generated audio | `audio/` at repo root or `%APPDATA%\PersonaAI\audio\` (cache, safe to delete) |
 
-```text
-%APPDATA%\PersonaAI\
-  .env
-  piper_models\
-    en_US-amy-medium.onnx
-    en_US-amy-medium.onnx.json
-    fa_IR-amir-medium.onnx
-    fa_IR-amir-medium.onnx.json
-  audio\
-  rag_index\
-```
+## Folders you can delete locally
 
-## Installed vs portable
-
-| | **NSIS/MSI installer** | **Portable folder** (release zip / `target/release/`) |
-|--|------------------------|--------------------------------------------------------|
-| **App binaries** | Program Files + resources | Same folder as `persona-ai-desktop.exe` |
-| **Sidecar** | Bundled next to app | `persona-backend.exe` in resources |
-| **Your config & voices** | Always `%APPDATA%\PersonaAI\` | Still `%APPDATA%\PersonaAI\` (not beside the exe) |
-| **Updates** | Re-run installer | Replace exe folder; AppData kept |
-
-Portable builds are “portable” for the **program**, not for moving user data. Copy `%APPDATA%\PersonaAI\` if you migrate machines.
-
-## What is bundled (read-only)
-
-Inside the PyInstaller sidecar:
-
-- FastAPI backend + Python deps
-- `ui/` (chat interface)
-- `data/faq_dataset.json`
-- Default `voice_avatar_map.json`
-
-Not bundled: Piper, voices, LLM, `.env`, RAG index, audio cache.
+- `audio/` — regenerated TTS cache only
+- `%APPDATA%\PersonaAI\audio\` — same cache in the desktop app
 
 ## First run checklist
 
-1. Install Ollama (or other LLM) and pull chat + embedding models.
-2. Download Piper + at least one English and one Farsi voice pair.
-3. Open Persona AI → **Settings** → set LLM, Piper paths, and voice folder.
-4. **Save backend settings** → check **Status**.
-5. Send a test message (speech + lip-sync).
+1. Configure your LLM and TTS provider in `.env` (GapGPT, OpenAI, Ollama + compatible TTS, etc.).
+2. Run the installer — choose **current user** unless you need a shared machine install.
+3. Launch Persona AI and check `/health` via the in-app status banner.
+4. Send a test message.
 
-See also [docs/piper-setup.md](piper-setup.md) and [apps/desktop/README.md](../apps/desktop/README.md).
+See also [apps/desktop/README.md](../apps/desktop/README.md).
