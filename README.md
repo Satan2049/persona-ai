@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/icons/app-icon.svg" width="128" alt="Persona AI logo" />
+  <img src="assets/icons/app-icon-1024.png" width="128" alt="Persona AI logo" />
 </p>
 
 <h1 align="center">Persona AI</h1>
@@ -30,11 +30,11 @@
 
 ## Description
 
-**Persona AI** is an open-source research demo: a supportive psychologist-style assistant with a **3D GLB avatar**, **Rhubarb lip-sync**, and **OpenAI-compatible** chat / TTS / STT. A FastAPI backend loads a small FAQ corpus as a **high-priority conversational roadmap** (short clarifying questions), synthesizes speech, and derives mouth cues from the **audio**. The **Tauri desktop app** bundles the same stack and **starts the Python sidecar automatically** on launch. The UI opens in **voice conversation** first.
+**Persona AI** is an open-source research demo: a supportive psychologist-style assistant with a **3D VRM/GLB avatar**, **Rhubarb lip-sync**, and **OpenAI-compatible** chat / TTS / STT. A FastAPI backend loads a small FAQ corpus as a **high-priority conversational roadmap** (short clarifying questions), synthesizes speech, and derives mouth cues from the **audio**. The **Tauri desktop app** bundles the same stack and **starts the Python sidecar automatically** on launch. The UI opens in **voice conversation** first.
 
-> **Disclaimer:** This is a research / demo assistant. It does not diagnose or replace professional mental-health care. Configure emergency and researcher contact numbers in `apps/backend/.env`.
+> **Disclaimer:** This is a research / demo assistant. It does not diagnose or replace professional mental-health care. Configure the emergency contact number in `apps/backend/.env`.
 
-**Current version:** `1.3.2`
+**Current version:** `1.3.3`
 
 ---
 
@@ -43,11 +43,11 @@
 - **Voice-first UI** — full-screen voice sanctuary on launch; switch to chat anytime
 - **Bilingual UI** — Persian and English with locale-locked system prompts
 - **OpenAI-compatible TTS / STT** — HTTP speech synthesis and transcription
-- **Rhubarb lip-sync** — mouth cues from the WAV (A–H / X → GLB morphs / visemes)
-- **GLB avatar** — Three.js loader with male/female models (`ui/avatars/`)
+- **Rhubarb lip-sync** — mouth cues from the WAV (A–H / X → VRM / GLB morphs)
+- **VRM / GLB avatar** — Three.js + `@pixiv/three-vrm`; named catalog (`Kira`, `Lucien`)
 - **FAQ roadmap** — `data/faq_dataset.json` steers short, question-led replies (no vector RAG)
 - **Safety layer** — high-risk detection and escalation replies
-- **Desktop app** — Tauri + PyInstaller sidecar (Windows NSIS; Linux/macOS via CI)
+- **Desktop app** — Tauri + PyInstaller sidecar (Windows NSIS; Linux/macOS via CI releases)
 - **Themeable UI** — themes, voice picker, and face-age controls
 
 ---
@@ -55,20 +55,23 @@
 ## Screenshots
 
 <p align="center">
-  <img src="assets/screenshots/01-chat.png" alt="Chat session" width="49%" />
-  <img src="assets/screenshots/02-avatar.png" alt="Avatar and lip-sync" width="49%" />
+  <img src="assets/media/preview.gif" alt="Persona AI preview" width="80%" />
 </p>
 
 <p align="center">
-  <img src="assets/screenshots/03-voices.png" alt="Voice library" width="49%" />
-  <img src="assets/screenshots/04-settings.png" alt="Toolbar controls" width="49%" />
+  <img src="assets/media/chat.png" alt="Chat session with avatar" width="49%" />
+  <img src="assets/media/voice-male.png" alt="Voice conversation — male avatar" width="49%" />
+</p>
+
+<p align="center">
+  <img src="assets/media/voice-female.png" alt="Voice conversation — female avatar" width="49%" />
 </p>
 
 ---
 
-## Demo video
+## Demo
 
-**[Watch the demo →](https://github.com/Satan2049/persona-ai/releases/download/v0.1.0/demo.mp4)** — screen recording of chat, TTS, lip-sync, and the Windows desktop app.
+Animated preview: [`assets/media/preview.gif`](assets/media/preview.gif). Full installers: **[GitHub Releases](https://github.com/Satan2049/persona-ai/releases)**.
 
 ---
 
@@ -129,9 +132,9 @@ persona-ai/
 ├── apps/
 │   ├── backend/          # FastAPI, TTS, STT, Rhubarb, FAQ guidance
 │   └── desktop/          # Tauri + sidecar packaging
-├── assets/               # Icons, screenshots, avatars source, default.env
+├── assets/               # Icons, media (screenshots/GIF), avatars source, default.env
 ├── data/                 # FAQ corpus
-├── docs/                 # Architecture, trust, voice, data layout
+├── docs/                 # Architecture, trust, voice, release notes, data layout
 ├── scripts/              # Dev and release helpers
 └── ui/                   # Static avatar + voice UI
 ```
@@ -145,8 +148,9 @@ persona-ai/
 | Backend docs | [apps/backend/README.md](apps/backend/README.md) |
 | Desktop docs | [apps/desktop/README.md](apps/desktop/README.md) |
 | Changelog | [CHANGELOG.md](CHANGELOG.md) |
+| Release notes (1.3.3) | [docs/release-notes-1.3.3.md](docs/release-notes-1.3.3.md) |
 
-**Not in git:** API keys, generated `audio/` cache, downloaded `tools/rhubarb/`.
+**Not in git:** API keys, generated `apps/audio/` cache, downloaded `tools/rhubarb/`.
 
 ---
 
@@ -177,13 +181,15 @@ npm run desktop:build
 ```
 
 - Windows: `apps/desktop/src-tauri/target/release/bundle/nsis/`
-- Linux / macOS: see GitHub Actions workflows under `.github/workflows/`
+- Linux / macOS: GitHub Actions uploads AppImage/deb/DMG (+ `SHA256-*.txt`) on `v*` tags
 
 ### Release checksums
 
 ```powershell
 .\scripts\generate-sha256.ps1 -ReleaseDir "dist\release"
 ```
+
+See [docs/TRUST.md](docs/TRUST.md) and [docs/release-notes-1.3.3.md](docs/release-notes-1.3.3.md).
 
 ---
 
@@ -192,7 +198,7 @@ npm run desktop:build
 | Layer | Technology |
 |-------|------------|
 | Frontend | HTML, CSS, vanilla JavaScript (`ui/`) |
-| Avatar | Three.js + GLB morph targets |
+| Avatar | Three.js + `@pixiv/three-vrm` (VRM / GLB) |
 | API | FastAPI + Uvicorn |
 | Style context | FAQ JSON roadmap (static prompt injection) |
 | TTS / STT | OpenAI-compatible HTTP |
@@ -208,7 +214,9 @@ npm run desktop:build
 - [docs/voice-conversation.md](docs/voice-conversation.md) — voice-first flow
 - [docs/desktop-data-layout.md](docs/desktop-data-layout.md) — install / AppData layout
 - [docs/TRUST.md](docs/TRUST.md) — verify release hashes
+- [docs/release-notes-1.3.3.md](docs/release-notes-1.3.3.md) — v1.3.3 release notes
 - [assets/avatars/README.md](assets/avatars/README.md) — replace avatars
+- [assets/media/README.md](assets/media/README.md) — screenshots / preview GIF
 
 ---
 

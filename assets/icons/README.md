@@ -2,20 +2,14 @@
 
 | File | Use |
 |------|-----|
-| `app-icon.svg` | Master vector (256 viewBox) — README logo, splash screen |
-| `app-icon-1024.png` | Raster master for `tauri icon` (auto-exported from the SVG) |
+| `app-icon-1024.png` | **Primary brand / app icon** (README, Tauri, store tiles) — Lucien portrait, purple tile |
+| `favicon.png` | Browser tab icon |
+| `app-icon.svg` | Tiny fallback only (simple mark, not the face) |
 
-## Regenerate desktop / title-bar icons
+Do **not** use the SVG as the main logo — the PNG is the real brand mark.
 
-After editing `app-icon.svg`:
+## Regenerate desktop icons
 
 ```powershell
 .\scripts\prepare-desktop-icons.ps1
-cd apps\desktop
-npm run sidecar:build
-npm run build
 ```
-
-`npm run build` runs `prebuild` automatically (icons + cache clear). If Explorer still shows the old icon, restart Explorer or clear the Windows icon cache.
-
-Use Python **3.10–3.12** for the sidecar build (`pydantic` wheels are unreliable on 3.14).

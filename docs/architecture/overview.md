@@ -3,7 +3,7 @@
 | Layer | Path | Role |
 |-------|------|------|
 | Backend | `apps/backend/` | FastAPI API, OpenAI-compatible LLM/TTS/STT, Rhubarb lip sync |
-| UI | `ui/` | Vanilla JS chat + voice sanctuary + Three.js GLB avatar |
+| UI | `ui/` | Vanilla JS chat + voice sanctuary + Three.js VRM/GLB avatar |
 | Desktop | `apps/desktop/` | Tauri shell + PyInstaller sidecar |
 
 ## Chat + speech path
@@ -32,7 +32,7 @@ Visemes come from **audio analysis** (Rhubarb), not from guessing letters in the
 
 ## Avatars
 
-Only **GLB** is loaded (`ui/avatars/{gender}/avatar.glb`). Source files live under `assets/avatars/{gender}/source/`. Textures are embedded in the GLB.
+Only **named** avatar files are loaded via `ui/avatars/catalog.json` (defaults: `Kira.vrm` / `Lucien.vrm`). Add more entries to support e.g. `female/female1.glb`.
 
 ## Voice-first UI
 

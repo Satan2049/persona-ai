@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from app.paths import bundle_dir, is_frozen, repo_root, resolve_path
+from app.win_process import hidden_process_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -210,6 +211,7 @@ async def analyze_wav(
                 cwd=str(binary.parent),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                **hidden_process_kwargs(),
             )
             try:
                 stdout, stderr = await asyncio.wait_for(

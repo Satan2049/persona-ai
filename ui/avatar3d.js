@@ -1,39 +1,51 @@
 /**
- * 3D GLB avatar — lip sync via Rhubarb mouth shapes A–H / X.
+ * 3D avatar (VRM / GLB) — lip sync via Rhubarb mouth shapes A–H / X.
+ * Catalog: ui/avatars/catalog.json (named files, e.g. Kira.vrm, Lucien.vrm).
  */
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
 
 const GENDERS = ["male", "female"];
+const STORAGE_GENDER = "smartAvatarModelGender";
+const STORAGE_AVATAR_ID = "smartAvatarId";
 
 /**
- * Rhubarb mouth cues → blendshape weights.
+ * Rhubarb mouth cues → VRM expression / morph weights.
  * A/X closed · B slight · C–D open · E/H round-wide · F/G labiodental
  */
 const RHUBARB_TO_SHAPES = {
-  A: { pp: 0.9 },
+  A: {},
   B: { aa: 0.35, ih: 0.15 },
   C: { aa: 0.65, ee: 0.2 },
   D: { aa: 1.0 },
   E: { oh: 0.75, aa: 0.35 },
-  F: { ff: 0.85 },
+  F: { ou: 0.7, oh: 0.25 },
   G: { ou: 0.55, ih: 0.2 },
   H: { aa: 0.55, ee: 0.45 },
   X: {},
 };
 
-/** Logical shape → morph target name aliases (RPM / ARKit / VRM leftovers). */
 const SHAPE_MORPH_ALIASES = {
-  aa: ["viseme_aa", "viseme_aa.001", "mouthOpen", "jawOpen", "aa", "A", "Fcl_MTH_A"],
-  ih: ["viseme_I", "viseme_I.001", "ih", "I", "Fcl_MTH_I"],
-  ou: ["viseme_U", "viseme_U.001", "ou", "U", "Fcl_MTH_U", "mouthPucker", "mouthFunnel"],
-  ee: ["viseme_E", "viseme_E.001", "ee", "E", "Fcl_MTH_E"],
-  oh: ["viseme_O", "viseme_O.001", "oh", "O", "Fcl_MTH_O"],
-  pp: ["viseme_PP", "viseme_PP.001"],
-  ff: ["viseme_FF", "viseme_FF.001"],
+  aa: ["Fcl_MTH_A", "Fcl_MTH_Large", "viseme_aa", "mouthOpen", "jawOpen", "aa", "A"],
+  ih: ["Fcl_MTH_I", "viseme_I", "ih", "I"],
+  ou: ["Fcl_MTH_U", "viseme_U", "ou", "U", "mouthPucker", "mouthFunnel"],
+  ee: ["Fcl_MTH_E", "viseme_E", "ee", "E"],
+  oh: ["Fcl_MTH_O", "viseme_O", "oh", "O"],
+  pp: ["viseme_PP", "Fcl_MTH_Close"],
+  ff: ["viseme_FF"],
 };
 
-const MOUTH_PRESETS = Object.keys(SHAPE_MORPH_ALIASES);
+const MOUTH_PRESETS = ["aa", "ih", "ou", "ee", "oh", "pp", "ff"];
+
+const FALLBACK_CATALOG = {
+  version: 1,
+  defaults: { female: "Kira", male: "Lucien" },
+  avatars: [
+    { id: "Kira", gender: "female", file: "female/Kira.vrm", label: "Kira", format: "vrm" },
+    { id: "Lucien", gender: "male", file: "male/Lucien.vrm", label: "Lucien", format: "vrm" },
+  ],
+};
 
 class Avatar3D {
   constructor() {
@@ -43,7 +55,10 @@ class Avatar3D {
     this.camera = null;
     this.modelRoot = null;
     this.avatar = null;
+    this.vrm = null;
     this.gender = "female";
+    this.avatarId = null;
+    this.catalog = null;
     this.mouthOpen = 0;
     this.targetMouthOpen = 0;
     this.targetViseme = "X";
@@ -153,45 +168,90 @@ class Avatar3D {
     this.ready = false;
   }
 
+  async _ensureCatalog() {
+    if (this.catalog) return this.catalog;
+    try {
+      const url = this._resolveCatalogUrl();
+      const res = await fetch(url, { cache: "no-cache" });
+      if (!res.ok) throw new Error(`catalog HTTP ${res.status}`);
+      this.catalog = await res.json();
+    } catch (err) {
+      console.warn("[Avatar3D] catalog load failed, using fallback", err?.message || err);
+      this.catalog = FALLBACK_CATALOG;
+    }
+    return this.catalog;
+  }
+
+  _resolveCatalogUrl() {
+    const rel = "avatars/catalog.json";
+    const api = window.__PERSONA_API_BASE__;
+    if (api) {
+      return `${String(api).replace(/\/$/, "")}/${rel}`;
+    }
+    return new URL(`./${rel}`, window.location.href).href;
+  }
+
+  _entryById(id) {
+    const list = this.catalog?.avatars || [];
+    return list.find((a) => a && a.id === id) || null;
+  }
+
+  _defaultIdForGender(gender) {
+    const g = GENDERS.includes(gender) ? gender : "female";
+    return this.catalog?.defaults?.[g] || (g === "male" ? "Lucien" : "Kira");
+  }
+
   async setGender(gender, force = false) {
     const next = GENDERS.includes(gender) ? gender : "female";
-    if (!force && next === this.gender && this.modelRoot) return;
+    await this._ensureCatalog();
+    const id = this._defaultIdForGender(next);
+    if (!force && next === this.gender && id === this.avatarId && this.modelRoot) {
+      return;
+    }
     this.gender = next;
-    window.localStorage.setItem("smartAvatarModelGender", next);
+    window.localStorage.setItem(STORAGE_GENDER, next);
+    return this.setAvatar(id, { gender: next, force: true });
+  }
+
+  async setAvatar(avatarId, options = {}) {
+    await this._ensureCatalog();
+    const entry = this._entryById(avatarId);
+    if (!entry) {
+      const fallbackId = this._defaultIdForGender(options.gender || this.gender);
+      if (fallbackId !== avatarId) {
+        return this.setAvatar(fallbackId, { ...options, force: true });
+      }
+      throw new Error(`Unknown avatar id: ${avatarId}`);
+    }
+
+    const gender = entry.gender || options.gender || this.gender;
+    if (!options.force && entry.id === this.avatarId && this.modelRoot) {
+      return;
+    }
+
+    this.gender = GENDERS.includes(gender) ? gender : this.gender;
+    this.avatarId = entry.id;
+    window.localStorage.setItem(STORAGE_GENDER, this.gender);
+    window.localStorage.setItem(STORAGE_AVATAR_ID, entry.id);
+
     if (!this.scene || !this.renderer) return;
 
     const token = ++this._loadToken;
     this.ready = false;
     this._disposeModel();
 
-    const url = this._resolveAvatarUrl(next);
+    const url = this._resolveAvatarFileUrl(entry.file);
     try {
-      await this._loadAvatar(url, token);
+      await this._loadAvatar(url, entry, token);
     } catch (err) {
-      if (next === "male") {
-        console.warn("[Avatar3D] male GLB missing, trying female", err?.message || err);
-        try {
-          await this._loadAvatar(this._resolveAvatarUrl("female"), token);
-          return;
-        } catch (err2) {
-          console.error("Avatar load failed", err2);
-          this._showLoadError(err2);
-          this.ready = false;
-          return;
-        }
-      }
       console.error("Avatar load failed", err);
       this._showLoadError(err);
       this.ready = false;
     }
   }
 
-  /**
-   * Desktop install embeds UI in Tauri; large binaries often fail on the asset protocol.
-   * Prefer the sidecar HTTP origin when available.
-   */
-  _resolveAvatarUrl(gender) {
-    const rel = `avatars/${gender}/avatar.glb`;
+  _resolveAvatarFileUrl(relFile) {
+    const rel = `avatars/${String(relFile || "").replace(/^\/+/, "")}`;
     const api = window.__PERSONA_API_BASE__;
     if (api) {
       return `${String(api).replace(/\/$/, "")}/${rel}`;
@@ -210,10 +270,9 @@ class Avatar3D {
     el.textContent = `Avatar failed to load: ${err?.message || err}`;
   }
 
-  async _loadAvatar(url, token) {
+  async _loadAvatar(url, entry, token) {
+    const format = String(entry.format || "").toLowerCase() || (url.endsWith(".vrm") ? "vrm" : "glb");
     const loader = new GLTFLoader();
-    // WebView2 / some Chromium builds fail ImageBitmap decode for glTF blob
-    // textures (silent null → grey untextured mesh). Prefer TextureLoader.
     loader.register((parser) => {
       const texLoader = new THREE.TextureLoader(parser.options.manager);
       texLoader.setCrossOrigin(parser.options.crossOrigin);
@@ -221,16 +280,36 @@ class Avatar3D {
         texLoader.setRequestHeader(parser.options.requestHeader);
       }
       parser.textureLoader = texLoader;
+      if (format === "vrm") {
+        return new VRMLoaderPlugin(parser);
+      }
       return { name: "PersonaTextureLoader" };
     });
+
     const gltf = await new Promise((resolve, reject) => {
       loader.load(url, resolve, undefined, reject);
     });
     if (token !== this._loadToken) return;
 
-    const root = gltf.scene;
-    if (!root) {
-      throw new Error("GLB did not contain a scene");
+    let root = gltf.scene;
+    let vrm = null;
+    if (format === "vrm") {
+      vrm = gltf.userData.vrm;
+      if (!vrm) {
+        throw new Error("VRM plugin did not produce userData.vrm");
+      }
+      try {
+        VRMUtils.combineSkeletons?.(vrm.scene);
+      } catch (_e) {
+        /* optional */
+      }
+      // VRM 0.x faces -Z; this spins the scene to +Z. VRM 1.x already faces +Z — no-op.
+      try {
+        VRMUtils.rotateVRM0?.(vrm);
+      } catch (_e) {
+        /* ignore */
+      }
+      root = vrm.scene;
     }
 
     root.traverse((obj) => {
@@ -248,8 +327,11 @@ class Avatar3D {
       }
     });
 
+    this.vrm = vrm;
     this.avatar = root;
     this.modelRoot = new THREE.Group();
+    // Camera sits on +Z looking at the head. After rotateVRM0, models face +Z — do not yaw 180°.
+    this.modelRoot.rotation.y = 0;
     this.modelRoot.add(root);
     this.scene.add(this.modelRoot);
     this.host?.querySelector(".avatar3d-error")?.remove();
@@ -260,17 +342,40 @@ class Avatar3D {
     this._cacheBones();
     this._cacheMouthDrivers();
     this._applyIdlePose();
+    if (this.vrm) this.vrm.update(0);
+    this._applyIdlePose();
     this._frameOnHead();
     this.ready = true;
     this.resetMouth();
-    console.info("[Avatar3D] Loaded GLB", url, {
-      morphMeshes: this._mouthMeshes.length,
-      bones: Object.keys(this._bones),
+    console.info("[Avatar3D] Loaded", entry.id, url, {
+      format,
+      expressions: this._expressionNames(),
+      mouthMeshes: this._mouthMeshes.length,
     });
   }
 
   _cacheBones() {
     this._bones = Object.create(null);
+    if (this.vrm?.humanoid) {
+      const h = this.vrm.humanoid;
+      const map = {
+        Head: "head",
+        Neck: "neck",
+        Spine2: "upperChest",
+        Spine1: "chest",
+        Spine: "spine",
+        LeftArm: "leftUpperArm",
+        RightArm: "rightUpperArm",
+        LeftForeArm: "leftLowerArm",
+        RightForeArm: "rightLowerArm",
+      };
+      for (const [key, human] of Object.entries(map)) {
+        const node =
+          h.getNormalizedBoneNode?.(human) || h.getBoneNode?.(human) || null;
+        if (node) this._bones[key] = node;
+      }
+      return;
+    }
     if (!this.avatar) return;
     const wanted = new Set([
       "Head",
@@ -282,12 +387,38 @@ class Avatar3D {
       "RightArm",
       "LeftForeArm",
       "RightForeArm",
+      "J_Bip_C_Head",
+      "J_Bip_C_Neck",
+      "J_Bip_C_UpperChest",
+      "J_Bip_C_Chest",
+      "J_Bip_L_UpperArm",
+      "J_Bip_R_UpperArm",
+      "J_Bip_L_LowerArm",
+      "J_Bip_R_LowerArm",
     ]);
     this.avatar.traverse((obj) => {
       if (obj.name && wanted.has(obj.name) && !this._bones[obj.name]) {
         this._bones[obj.name] = obj;
       }
     });
+    // Aliases for framing helpers
+    if (!this._bones.Head && this._bones.J_Bip_C_Head) this._bones.Head = this._bones.J_Bip_C_Head;
+    if (!this._bones.Neck && this._bones.J_Bip_C_Neck) this._bones.Neck = this._bones.J_Bip_C_Neck;
+    if (!this._bones.Spine2 && this._bones.J_Bip_C_UpperChest) {
+      this._bones.Spine2 = this._bones.J_Bip_C_UpperChest;
+    }
+    if (!this._bones.LeftArm && this._bones.J_Bip_L_UpperArm) {
+      this._bones.LeftArm = this._bones.J_Bip_L_UpperArm;
+    }
+    if (!this._bones.RightArm && this._bones.J_Bip_R_UpperArm) {
+      this._bones.RightArm = this._bones.J_Bip_R_UpperArm;
+    }
+    if (!this._bones.LeftForeArm && this._bones.J_Bip_L_LowerArm) {
+      this._bones.LeftForeArm = this._bones.J_Bip_L_LowerArm;
+    }
+    if (!this._bones.RightForeArm && this._bones.J_Bip_R_LowerArm) {
+      this._bones.RightForeArm = this._bones.J_Bip_R_LowerArm;
+    }
   }
 
   _bone(...names) {
@@ -297,9 +428,7 @@ class Avatar3D {
     return null;
   }
 
-  /**
-   * Default Mixamo/RPM rest is often T/A-pose. Fold arms down for a calm idle.
-   */
+  /** Fold T/A-pose arms down beside the torso. */
   _applyIdlePose() {
     const leftUpper = this._bone("LeftArm");
     const rightUpper = this._bone("RightArm");
@@ -318,6 +447,13 @@ class Avatar3D {
     if (rightLower) {
       rightLower.rotation.set(0.08, 0.4, -0.02);
     }
+  }
+
+  _expressionNames() {
+    const mgr = this.vrm?.expressionManager;
+    if (!mgr) return [];
+    if (mgr.expressionMap) return Object.keys(mgr.expressionMap);
+    return (mgr.expressions || []).map((e) => e?.expressionName || e?.name).filter(Boolean);
   }
 
   _cacheMouthDrivers() {
@@ -353,7 +489,7 @@ class Avatar3D {
     if (!this.avatar || !this.camera) return;
     const head = this._bone("Head");
     const neck = this._bone("Neck");
-    const chest = this._bone("Spine2", "Spine1", "Spine");
+    const chest = this._bone("Spine2", "Spine1", "Spine", "J_Bip_C_Chest");
 
     const headPos = new THREE.Vector3(0, 1.45, 0);
     const neckPos = new THREE.Vector3(0, 1.32, 0);
@@ -376,21 +512,20 @@ class Avatar3D {
       chestPos.copy(headPos).add(new THREE.Vector3(0, -0.22, 0));
     }
 
-    // Head bone ≈ skull center; hair sits above it — leave crown margin.
-    const crownY = headPos.y + 0.22;
+    // Head + shoulders: crown margin, shoulders in frame
+    const crownY = headPos.y + 0.2;
     const chinBeltY = neckPos.y - 0.02;
-    const shoulderHintY = chestPos.y + 0.06;
+    const shoulderHintY = chestPos.y + 0.04;
     const bottomY = Math.min(chinBeltY, shoulderHintY);
     const topY = crownY;
-    // Bias look-at upward so the figure sits lower and the crown clears the frame
-    const lookAtY = (topY + bottomY) * 0.5 + 0;
+    const lookAtY = (topY + bottomY) * 0.5;
     const halfHeight = Math.max(0.14, (topY - bottomY) * 0.5);
 
-    this.camera.fov = 25;
+    this.camera.fov = 26;
     this.camera.near = 0.05;
     this.camera.far = 20;
     const vFov = THREE.MathUtils.degToRad(this.camera.fov);
-    const distance = (halfHeight * 1) / Math.tan(vFov / 2);
+    const distance = (halfHeight * 1.15) / Math.tan(vFov / 2);
 
     this.camera.position.set(headPos.x, lookAtY, headPos.z + distance);
     this.camera.lookAt(headPos.x, lookAtY, headPos.z);
@@ -423,17 +558,26 @@ class Avatar3D {
     this.applyViseme("D", open);
     this.mouthOpen = this.targetMouthOpen;
     this._applyMouth(this.mouthOpen, "D");
+    if (this.vrm) this.vrm.update(1 / 60);
     this._applyDirectMorphs(this._mouthValues);
     return {
       ready: this.ready,
+      avatarId: this.avatarId,
+      expressions: this._expressionNames(),
       mouthMeshes: this._mouthMeshes.length,
       open: this.mouthOpen,
     };
   }
 
   _applyMouth(open, visemeKey) {
-    if (!this.avatar) return;
+    if (!this.avatar && !this.vrm) return;
     this._mouthValues = this._computeMouthValues(open, visemeKey);
+    const mgr = this.vrm?.expressionManager;
+    if (mgr) {
+      for (const name of ["aa", "ih", "ou", "ee", "oh"]) {
+        mgr.setValue(name, this._mouthValues[name] || 0);
+      }
+    }
   }
 
   _computeMouthValues(open, visemeKey) {
@@ -461,6 +605,13 @@ class Avatar3D {
   _disposeModel() {
     this._mouthMeshes = [];
     this._bones = Object.create(null);
+    if (this.vrm) {
+      try {
+        VRMUtils.deepDispose?.(this.vrm.scene);
+      } catch (_e) {
+        /* fallback below */
+      }
+    }
     if (this.modelRoot) {
       this.scene?.remove(this.modelRoot);
       this.modelRoot.traverse((obj) => {
@@ -476,6 +627,7 @@ class Avatar3D {
     }
     this.modelRoot = null;
     this.avatar = null;
+    this.vrm = null;
   }
 
   _resize() {
@@ -490,15 +642,18 @@ class Avatar3D {
   _tick() {
     this.raf = requestAnimationFrame(() => this._tick());
     if (!this.renderer || !this.scene || !this.camera) return;
+    const delta = this._clock.getDelta();
     const t = this._clock.elapsedTime;
 
     this.mouthOpen += (this.targetMouthOpen - this.mouthOpen) * 0.45;
     this._applyMouth(this.mouthOpen, this.targetViseme);
 
-    if (this.avatar) {
+    if (this.vrm || this.avatar) {
+      if (this.vrm) this.vrm.update(delta);
       this._applyIdlePose();
       this._applyDirectMorphs(this._mouthValues);
       if (this.modelRoot) {
+        // Subtle idle yaw only — keep facing the camera (+Z).
         this.modelRoot.rotation.y = Math.sin(t * 0.25) * 0.03;
       }
     }
@@ -508,9 +663,13 @@ class Avatar3D {
 }
 
 const avatar3d = new Avatar3D();
-const storedGender = window.localStorage.getItem("smartAvatarModelGender");
+const storedGender = window.localStorage.getItem(STORAGE_GENDER);
 if (storedGender === "female" || storedGender === "male") {
   avatar3d.gender = storedGender;
+}
+const storedAvatarId = window.localStorage.getItem(STORAGE_AVATAR_ID);
+if (storedAvatarId) {
+  avatar3d.avatarId = storedAvatarId;
 }
 
 window.PersonaAvatar = {
@@ -523,8 +682,14 @@ window.PersonaAvatar = {
   setGender(gender) {
     return avatar3d.setGender(gender);
   },
+  setAvatar(id) {
+    return avatar3d.setAvatar(id);
+  },
   getGender() {
     return avatar3d.gender;
+  },
+  getAvatarId() {
+    return avatar3d.avatarId;
   },
   applyViseme(key, weight) {
     avatar3d.applyViseme(key, weight);

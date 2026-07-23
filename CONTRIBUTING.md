@@ -9,7 +9,7 @@ persona-ai/
 ├── apps/
 │   ├── backend/          # FastAPI API, RAG, Piper integration
 │   └── desktop/          # Tauri shell + PyInstaller sidecar packaging
-├── assets/               # Icons, screenshots, shared config
+├── assets/               # Icons, media, shared config
 ├── data/                 # FAQ corpus and generated RAG index
 ├── docs/                 # Design, trust, and deployment documentation
 ├── scripts/              # Build and dev helpers

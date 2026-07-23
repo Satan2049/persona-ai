@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented here.
 
+## [1.3.3] — 2026-07-23
+
+### Added
+
+- Named VRM catalog defaults (`Kira` / `Lucien`) with larger avatar stage in chat and voice UI
+- `assets/media/` preview GIF + new screenshots for README
+- Linux/macOS CI: attach AppImage/deb/DMG and `SHA256-*.txt` to GitHub Releases on `v*` tags
+- [docs/release-notes-1.3.3.md](docs/release-notes-1.3.3.md)
+
+### Changed
+
+- Default theme / brand mark aligned to purple Lucien portrait
+- Avatar facing fixed for VRM 1.0 (+Z toward camera)
+- Windows subprocesses for ffmpeg / Rhubarb use `CREATE_NO_WINDOW` (no console flash)
+
+### Removed
+
+- `RESEARCHER_NUMBER` env and researcher contact lines from escalation prompts
+
 ## [1.3.2] — 2026-07-16
 
 ### Added

@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "defaults": {
+    "female": "Kira",
+    "male": "Lucien"
+  },
+  "avatars": [
+    {
+      "id": "Kira",
+      "gender": "female",
+      "file": "female/Kira.vrm",
+      "label": "Kira",
+      "format": "vrm"
+    },
+    {
+      "id": "Lucien",
+      "gender": "male",
+      "file": "male/Lucien.vrm",
+      "label": "Lucien",
+      "format": "vrm"
+    }
+  ]
+}

@@ -13,7 +13,7 @@ The desktop and web UI open in **voice mode** first (`#voiceSanctuary`).
 | File | Role |
 |------|------|
 | `ui/app.js` | `VoiceSession`, mic capture, bootstrap `voiceSession.open()` |
-| `ui/avatar3d.js` | GLB load, idle pose, viseme → morph targets |
+| `ui/avatar3d.js` | Catalog load, VRM/GLB, idle pose, viseme morphs |
 | `apps/backend/app/stt.py` | Speech-to-text |
 | `apps/backend/app/tts.py` | Text-to-speech + WAV repair |
 | `apps/backend/app/rhubarb.py` | Mouth cues from WAV |

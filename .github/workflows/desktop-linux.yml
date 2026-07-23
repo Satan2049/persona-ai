@@ -21,9 +21,14 @@ on:
       - ".github/workflows/desktop-linux.yml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -81,3 +86,32 @@ jobs:
             apps/desktop/src-tauri/target/release/bundle/appimage/*
             apps/desktop/src-tauri/target/release/bundle/deb/*
           if-no-files-found: warn
+
+      - name: Collect release assets + SHA256
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          mkdir -p dist/release
+          shopt -s nullglob
+          for f in apps/desktop/src-tauri/target/release/bundle/appimage/* \
+                   apps/desktop/src-tauri/target/release/bundle/deb/*; do
+            [[ -f "$f" ]] || continue
+            cp -f "$f" "dist/release/$(basename "$f")"
+          done
+          if [[ -z "$(ls -A dist/release 2>/dev/null)" ]]; then
+            echo "No Linux bundle files to publish" >&2
+            exit 1
+          fi
+          (
+            cd dist/release
+            sha256sum * | tee SHA256-linux.txt
+          )
+          ls -lah dist/release
+
+      - name: Upload to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/release/*
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

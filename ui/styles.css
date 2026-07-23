@@ -1,6 +1,33 @@
-/* Theme tokens: default = blue */
+/* Theme tokens: default = purple */
 :root {
   --titlebar-h: 40px;
+  --bg: #100818;
+  --bg-accent: #1a0c28;
+  --bg-gradient-mid: #301848;
+  --text: #f3e8ff;
+  --muted: #c4a8d8;
+  --primary: #b197fc;
+  --primary-2: #e599f7;
+  --glass: rgba(180, 120, 255, 0.08);
+  --border: rgba(200, 160, 255, 0.22);
+  --danger: #ff7b8a;
+  --success: #5ee4a3;
+  --msg-assistant-bg: rgba(177, 151, 252, 0.16);
+  --msg-assistant-border: rgba(200, 170, 255, 0.42);
+  --msg-user-bg: rgba(229, 153, 247, 0.12);
+  --msg-user-border: rgba(229, 153, 247, 0.38);
+  --avatar-skin-a: #f0d2bc;
+  --avatar-skin-b: #c9a088;
+  --avatar-mouth: #9c3d52;
+  --avatar-stage-a: #241030;
+  --avatar-stage-b: #14081c;
+  --menu-surface: rgba(255, 255, 255, 0.08);
+  --menu-text: var(--text);
+  --menu-muted: var(--muted);
+  --menu-border: var(--border);
+}
+
+html[data-theme="blue"] {
   --bg: #0a0f1f;
   --bg-accent: #111933;
   --bg-gradient-mid: #1c2d5f;
@@ -10,21 +37,12 @@
   --primary-2: #38d3ff;
   --glass: rgba(255, 255, 255, 0.07);
   --border: rgba(255, 255, 255, 0.16);
-  --danger: #ff7b8a;
-  --success: #5ee4a3;
   --msg-assistant-bg: rgba(120, 143, 255, 0.2);
   --msg-assistant-border: rgba(140, 160, 255, 0.45);
   --msg-user-bg: rgba(44, 219, 255, 0.16);
   --msg-user-border: rgba(44, 219, 255, 0.45);
-  --avatar-skin-a: #f0d2bc;
-  --avatar-skin-b: #c9a088;
-  --avatar-mouth: #9c3d52;
   --avatar-stage-a: #0f1b3e;
   --avatar-stage-b: var(--bg-accent);
-  --menu-surface: rgba(255, 255, 255, 0.08);
-  --menu-text: var(--text);
-  --menu-muted: var(--muted);
-  --menu-border: var(--border);
 }
 
 html[data-theme="black"] {
@@ -342,15 +360,17 @@ html.is-desktop .voice-sanctuary {
   position: relative;
   display: grid;
   place-items: center;
-  width: min(480px, 92vw);
-  min-height: 420px;
-  padding: 12px;
+  flex: 1 1 auto;
+  width: min(780px, 96vw);
+  min-height: min(560px, 62vh);
+  max-height: min(720px, 74vh);
+  padding: 8px;
 }
 
 .voice-avatar-stage::before {
   content: "";
   position: absolute;
-  inset: 8% 12%;
+  inset: 6% 10%;
   border-radius: 50%;
   background: radial-gradient(
     circle,
@@ -364,7 +384,8 @@ html.is-desktop .voice-sanctuary {
 .voice-avatar-stage .avatar3d-host {
   position: relative;
   z-index: 1;
-  min-height: 400px;
+  min-height: min(520px, 58vh);
+  height: 100%;
   width: 100%;
 }
 
@@ -431,11 +452,13 @@ html.is-desktop .voice-sanctuary {
   }
 
   .voice-avatar-stage {
-    min-height: 300px;
+    width: min(100%, 96vw);
+    min-height: min(420px, 52vh);
+    max-height: min(560px, 64vh);
   }
 
   .voice-avatar-stage .avatar3d-host {
-    min-height: 280px;
+    min-height: min(400px, 48vh);
   }
 
   .voice-sanctuary-controls {
@@ -812,7 +835,7 @@ html[data-theme="white"] .settings-hint code {
   min-height: 0;
   overflow: hidden;
   display: grid;
-  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  grid-template-columns: minmax(360px, 460px) minmax(0, 1fr);
   gap: 16px;
   padding: 12px 20px 16px;
 }
@@ -868,14 +891,14 @@ html[data-theme="white"] .badge {
 
 .avatar-stage {
   position: relative;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   border-radius: 16px;
   background: radial-gradient(ellipse 80% 60% at 50% 35%, rgba(255, 255, 255, 0.06), transparent),
     linear-gradient(165deg, var(--avatar-stage-a), var(--avatar-stage-b));
   display: grid;
   place-items: center;
-  min-height: 280px;
-  max-height: min(48vh, 420px);
+  min-height: 380px;
+  max-height: min(62vh, 560px);
   padding: 8px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   overflow: hidden;
@@ -885,7 +908,7 @@ html[data-theme="white"] .badge {
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 260px;
+  min-height: 360px;
 }
 
 .avatar3d-error {
@@ -1293,12 +1316,16 @@ html[data-theme="white"] .btn-primary {
   }
 
   .left-panel {
-    max-height: min(46vh, 420px);
+    max-height: min(56vh, 520px);
   }
 
   .avatar-stage {
-    min-height: 200px;
-    max-height: 260px;
+    min-height: 280px;
+    max-height: 360px;
+  }
+
+  .avatar3d-host {
+    min-height: 260px;
   }
 
   .app-toolbar {

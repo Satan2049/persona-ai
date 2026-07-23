@@ -54,13 +54,13 @@ const setupHelp = document.getElementById("setupHelp");
 const setupHelpBody = document.getElementById("setupHelpBody");
 
 const THEMES = [
+  { id: "purple" },
   { id: "blue" },
   { id: "black" },
   { id: "white" },
   { id: "red" },
   { id: "green" },
   { id: "yellow" },
-  { id: "purple" },
 ];
 
 function t(key) {
@@ -208,7 +208,7 @@ function genderLabelShort(gender) {
 function syncVoiceControls() {
   if (voiceThemeSelect) {
     voiceThemeSelect.innerHTML = themeSelect?.innerHTML || "";
-    voiceThemeSelect.value = themeSelect?.value || "blue";
+    voiceThemeSelect.value = themeSelect?.value || "purple";
   }
   if (voiceLocaleSelect) {
     voiceLocaleSelect.value = getLocale();
@@ -288,13 +288,13 @@ function initThemeSelect() {
     themeSelect.appendChild(opt);
   });
   const stored = window.localStorage.getItem(STORAGE_THEME);
-  const pick = stored && THEMES.some((x) => x.id === stored) ? stored : "blue";
+  const pick = stored && THEMES.some((x) => x.id === stored) ? stored : "purple";
   themeSelect.value = pick;
   document.documentElement.setAttribute("data-theme", pick);
 }
 
 function applyTheme(themeId) {
-  const id = THEMES.some((t) => t.id === themeId) ? themeId : "blue";
+  const id = THEMES.some((t) => t.id === themeId) ? themeId : "purple";
   document.documentElement.setAttribute("data-theme", id);
   window.localStorage.setItem(STORAGE_THEME, id);
   if (themeSelect) {

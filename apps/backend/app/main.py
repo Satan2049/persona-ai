@@ -47,7 +47,7 @@ async def _app_lifespan(_app: FastAPI):
 
 app = FastAPI(
     title="Smart Avatar Offline Backend",
-    version="1.3.2",
+    version="1.3.3",
     lifespan=_app_lifespan,
 )
 
@@ -80,7 +80,6 @@ def _env_trim(raw: str | None, default: str = "") -> str:
 
 
 SOCIAL_EMERGENCY_NUMBER = _env_trim(os.getenv("SOCIAL_EMERGENCY_NUMBER"), "123")
-RESEARCHER_NUMBER = _env_trim(os.getenv("RESEARCHER_NUMBER"), "09373759943")
 
 
 def _resolve_path_from_backend_dir(raw: str) -> str:
@@ -102,7 +101,7 @@ def reload_runtime_config() -> None:
     """Re-read environment after Settings UI saves AppData .env."""
     global MODEL_API_BASE, MODEL_API_KEY, MODEL_NAME, MODEL_TIMEOUT_SECONDS
     global MODEL_MAX_RETRIES, MODEL_TEMPERATURE, MODEL_MAX_TOKENS
-    global SOCIAL_EMERGENCY_NUMBER, RESEARCHER_NUMBER
+    global SOCIAL_EMERGENCY_NUMBER
     global VOICE_AVATAR_MAP_PATH, _voice_avatar_map_cache
     global _BACKEND_DIR, _dev_env
 
@@ -117,7 +116,6 @@ def reload_runtime_config() -> None:
     MODEL_TEMPERATURE = float(os.getenv("MODEL_TEMPERATURE", "0.5"))
     MODEL_MAX_TOKENS = int(os.getenv("MODEL_MAX_TOKENS", "380"))
     SOCIAL_EMERGENCY_NUMBER = _env_trim(os.getenv("SOCIAL_EMERGENCY_NUMBER"), "123")
-    RESEARCHER_NUMBER = _env_trim(os.getenv("RESEARCHER_NUMBER"), "09373759943")
     VOICE_AVATAR_MAP_PATH = (
         _resolve_path_from_backend_dir(os.getenv("VOICE_AVATAR_MAP_PATH", ""))
         or str(default_voice_avatar_map())
@@ -185,7 +183,7 @@ SYSTEM_PROMPT_FA = (
     "Be warm and practical, but keep the FAQ question-led structure first. "
     "Vary wording; do not diagnose. "
     "Do NOT give phone numbers or contact lines in normal conversation. "
-    "Only mention emergency or researcher numbers if the user explicitly asks how to reach help "
+    "Only mention the emergency number if the user explicitly asks how to reach help "
     "or describes immediate self-harm or suicide intent. "
     "Keep every reply short: about 1–3 sentences unless the user explicitly asks for more. "
     "Prefer ending with a single clear question. No long essays or numbered lists."
@@ -198,7 +196,7 @@ SYSTEM_PROMPT_EN = (
     "Vary your openings and phrasing; avoid repeating the same empathy formulas in every reply. "
     "Do not diagnose. "
     "Do NOT give phone numbers or contact lines in normal conversation. "
-    "Only mention emergency or researcher numbers if the user explicitly asks how to reach help "
+    "Only mention the emergency number if the user explicitly asks how to reach help "
     "or describes immediate self-harm or suicide intent. "
     "Keep every reply short: about 2–5 sentences unless the user explicitly asks for more. "
     "No long essays or numbered lists."
@@ -234,7 +232,6 @@ CONTACT_REQUEST_TERMS = [
     "شماره",
     "تماس",
     "تلفن",
-    "پژوهشگر",
     "اورژانس",
     "number",
     "contact",
@@ -249,7 +246,6 @@ ESCALATION_RESPONSE_FA = (
     "اگر در خطر فوری هستی یا ممکن است به خودت آسیب بزنی، همین الان با اورژانس اجتماعی "
     f"({SOCIAL_EMERGENCY_NUMBER}) یا خط‌های رسمی کمک‌های فوری تماس بگیر "
     "یا از یک نفر مطمئن بخواه کنارت بماند. "
-    f"برای ارتباط با پژوهشگر می‌توانی با {RESEARCHER_NUMBER} تماس بگیری. "
     "می‌توانم قدم‌به‌قدم همراهت باشم، اما کمک انسانی فوری هم بسیار مهم است."
 )
 
@@ -258,7 +254,6 @@ ESCALATION_RESPONSE_EN = (
     f"If you are in immediate danger or might hurt yourself, call Social Emergency ({SOCIAL_EMERGENCY_NUMBER}) "
     "or local emergency services now, "
     "or ask someone you trust to stay with you. "
-    f"For researcher contact, call {RESEARCHER_NUMBER}. "
     "I can still walk through next steps with you, but urgent in-person help matters a great deal."
 )
 
@@ -498,7 +493,7 @@ def _strip_unwanted_contact_mentions(text: str) -> str:
     """Remove configured contact numbers when the model adds them without cause."""
     if not text:
         return text
-    numbers = {SOCIAL_EMERGENCY_NUMBER, RESEARCHER_NUMBER}
+    numbers = {SOCIAL_EMERGENCY_NUMBER}
     sentences = re.split(r"(?<=[.!?؟۔…؛])\s+", text.strip())
     kept: list[str] = []
     for sentence in sentences:

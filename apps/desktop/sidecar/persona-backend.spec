@@ -35,6 +35,7 @@ hiddenimports = [
     "app.tts",
     "app.stt",
     "app.rhubarb",
+    "app.win_process",
     "multipart",
     "multipart.multipart",
     "pydantic_core._pydantic_core",

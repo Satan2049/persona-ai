@@ -55,4 +55,4 @@ CI builds Linux (AppImage/deb) and macOS (DMG) — see `.github/workflows/deskto
 
 ## Version
 
-`1.3.2` — keep in sync with root `package.json`, `tauri.conf.json`, and `Cargo.toml`.
+`1.3.3` — keep in sync with root `package.json`, `tauri.conf.json`, and `Cargo.toml`.

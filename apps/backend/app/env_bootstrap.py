@@ -48,7 +48,6 @@ SYNC_KEYS = CONFIG_KEYS | {
     "MODEL_TEMPERATURE",
     "MODEL_MAX_TOKENS",
     "SOCIAL_EMERGENCY_NUMBER",
-    "RESEARCHER_NUMBER",
     "TTS_VOICE_FA",
     "TTS_VOICE_EN",
     "TTS_TIMEOUT_SECONDS",
@@ -213,7 +212,6 @@ def _desktop_seed_values(extra: dict[str, str] | None = None) -> dict[str, str]:
         "TTS_VOICE_EN": "alloy",
         "STT_MODEL": "whisper-1",
         "SOCIAL_EMERGENCY_NUMBER": "123",
-        "RESEARCHER_NUMBER": "09373759943",
     }
     if extra:
         for key, val in extra.items():

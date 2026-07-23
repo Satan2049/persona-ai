@@ -1,18 +1,22 @@
 # Avatars
 
+Runtime files are under `ui/avatars/` (what the app loads). Optional source copies may live under `assets/avatars/{gender}/` locally — large `.vrm` / `.glb` there are **gitignored** so they are not duplicated in the repo.
+
 | Path | Role |
 |------|------|
-| `female/source/*.glb` | Source female GLB |
-| `male/source/*.glb` | Source male GLB |
-| `ui/avatars/female/avatar.glb` | Served female avatar |
-| `ui/avatars/male/avatar.glb` | Served male avatar |
+| `ui/avatars/catalog.json` | Registry: ids, gender defaults, file paths |
+| `ui/avatars/female/Kira.vrm` | Default female (Kira) |
+| `ui/avatars/male/Lucien.vrm` | Default male (Lucien) |
+| `assets/avatars/catalog.json` | Same catalog (for docs / packaging helpers) |
+| `apps/desktop/public/` | Synced from `ui/` by `scripts/sync-desktop-ui.ps1` (not committed) |
 
-Textures are **embedded** in the GLB — no separate `textures/` folder is required.
+Formats: **`.vrm`** (preferred) or **`.glb`**.
 
-Lip sync uses [Rhubarb](https://github.com/DanielSWolf/rhubarb-lip-sync) mouth shapes `A`–`H` / `X` mapped to Oculus/RPM visemes (`viseme_aa`, `viseme_E`, …) and ARKit mouth morphs.
+## Add another avatar
 
-## Replace a gender
+1. Put the file in `ui/avatars/{gender}/` with a clear name — e.g. `ui/avatars/female/female1.glb`
+2. Optionally keep a local copy under `assets/avatars/{gender}/` (ignored by git)
+3. Register it in **both** `assets/avatars/catalog.json` and `ui/avatars/catalog.json`
+4. Run `scripts/sync-desktop-ui.ps1` before desktop build/dev
 
-1. Put the file at `assets/avatars/{gender}/source/YourAvatar.glb`
-2. Copy to `ui/avatars/{gender}/avatar.glb`
-3. Run `scripts/sync-desktop-ui.ps1` (or the Linux/macOS equivalent copy into `apps/desktop/public`)
+Lip sync: Rhubarb shapes `A`–`H` / `X` → VRM expressions `aa` / `ih` / `ou` / `ee` / `oh` (or GLB morph aliases).

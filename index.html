@@ -8,18 +8,18 @@
       content="Persona AI — voice-first psychologist-style avatar with GLB lip-sync, OpenAI-compatible TTS/STT, and FAQ-guided replies in Persian and English."
     />
     <title>Persona AI — Smart Psychologist Avatar</title>
-    <link rel="icon" href="ui/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="ui/favicon.png" type="image/png" />
     <style>
       :root {
-        --bg: #0a0f1f;
-        --bg-accent: #111933;
-        --bg-gradient-mid: #1c2d5f;
-        --text: #eaf0ff;
-        --muted: #97a3c6;
-        --primary: #6e8bff;
-        --primary-2: #38d3ff;
-        --glass: rgba(255, 255, 255, 0.07);
-        --border: rgba(255, 255, 255, 0.16);
+        --bg: #100818;
+        --bg-accent: #1a0c28;
+        --bg-gradient-mid: #301848;
+        --text: #f3e8ff;
+        --muted: #c4a8d8;
+        --primary: #b197fc;
+        --primary-2: #e599f7;
+        --glass: rgba(180, 120, 255, 0.08);
+        --border: rgba(200, 160, 255, 0.22);
         --success: #5ee4a3;
         --danger: #ff7b8a;
         --radius: 16px;
@@ -42,8 +42,8 @@
         font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
         color: var(--text);
         background:
-          radial-gradient(1200px 600px at 10% -10%, rgba(110, 139, 255, 0.22), transparent 55%),
-          radial-gradient(900px 500px at 90% 0%, rgba(56, 211, 255, 0.14), transparent 50%),
+          radial-gradient(1200px 600px at 10% -10%, rgba(177, 151, 252, 0.22), transparent 55%),
+          radial-gradient(900px 500px at 90% 0%, rgba(229, 153, 247, 0.14), transparent 50%),
           linear-gradient(165deg, var(--bg) 0%, var(--bg-gradient-mid) 42%, var(--bg-accent) 100%);
         line-height: 1.6;
       }
@@ -382,7 +382,7 @@
       <header class="site-header">
         <nav class="nav" aria-label="Primary">
           <a class="brand" href="#" id="brandLink">
-            <img src="ui/favicon.svg" width="44" height="44" alt="" aria-hidden="true" />
+            <img src="assets/icons/app-icon-1024.png" width="44" height="44" alt="" aria-hidden="true" />
             <span>
               <strong>Persona AI</strong>
               <span>Smart Psychologist Avatar</span>
@@ -402,7 +402,7 @@
       <main>
         <section class="hero">
           <div>
-            <span class="eyebrow">Open source · v1.3.2 · Voice-first</span>
+            <span class="eyebrow">Open source · v1.3.3 · Voice-first</span>
             <h1>A supportive psychologist avatar with voice and lip-sync</h1>
             <p class="lead">
               Persona AI is a research demo: empathetic guidance in <strong>Persian</strong> and
@@ -544,9 +544,9 @@
           "git clone https://github.com/" + GITHUB_USER + "/" + GITHUB_REPO + ".git";
 
         var favicon = document.querySelector('link[rel="icon"]');
-        if (favicon) favicon.href = abs("ui/favicon.svg");
+        if (favicon) favicon.href = abs("ui/favicon.png");
         var brandImg = document.querySelector(".brand img");
-        if (brandImg) brandImg.src = abs("ui/favicon.svg");
+        if (brandImg) brandImg.src = abs("assets/icons/app-icon-1024.png");
 
         var note = document.getElementById("pagesNote");
         if (isUserSite) {

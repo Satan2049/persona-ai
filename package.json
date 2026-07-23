@@ -1,6 +1,6 @@
 {
   "name": "persona-ai",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "private": true,
   "description": "Persona AI — offline psychologist avatar assistant",
   "workspaces": [

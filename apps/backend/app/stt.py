@@ -12,6 +12,8 @@ from typing import Any, Literal
 
 import httpx
 
+from app.win_process import hidden_process_kwargs
+
 Locale = Literal["fa", "en"]
 
 TRANSCRIPTION_PATH = "/audio/transcriptions"
@@ -102,6 +104,7 @@ def _convert_to_wav_with_ffmpeg(audio_bytes: bytes, suffix: str) -> bytes | None
                 capture_output=True,
                 check=True,
                 timeout=30,
+                **hidden_process_kwargs(),
             )
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
             return None

@@ -54,7 +54,7 @@ def reload_tts_config() -> None:
     TTS_VOICE_FA = _env_trim(os.getenv("TTS_VOICE_FA"), "shimmer")
     TTS_VOICE_EN = _env_trim(os.getenv("TTS_VOICE_EN"), "alloy")
     raw_audio = _env_trim(os.getenv("AUDIO_OUTPUT_DIR"), "")
-    # Always absolute — relative ../../audio broke under the desktop sidecar cwd.
+    # Always absolute — relative ../audio broke under the desktop sidecar cwd.
     AUDIO_OUTPUT_DIR = str(resolve_path(raw_audio) if raw_audio else default_audio_dir())
     Path(AUDIO_OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
     _voice_catalog_cache = None

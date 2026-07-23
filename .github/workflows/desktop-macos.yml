@@ -21,9 +21,14 @@ on:
       - ".github/workflows/desktop-macos.yml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: macos-14
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -70,3 +75,31 @@ jobs:
             apps/desktop/src-tauri/target/release/bundle/dmg/*
             apps/desktop/src-tauri/target/release/bundle/macos/*
           if-no-files-found: warn
+
+      - name: Collect release assets + SHA256
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          mkdir -p dist/release
+          shopt -s nullglob
+          for f in apps/desktop/src-tauri/target/release/bundle/dmg/*; do
+            [[ -f "$f" ]] || continue
+            cp -f "$f" "dist/release/$(basename "$f")"
+          done
+          if [[ -z "$(ls -A dist/release 2>/dev/null)" ]]; then
+            echo "No macOS DMG files to publish" >&2
+            exit 1
+          fi
+          (
+            cd dist/release
+            shasum -a 256 * | tee SHA256-macos.txt
+          )
+          ls -lah dist/release
+
+      - name: Upload to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/release/*
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

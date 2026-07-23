@@ -35,11 +35,11 @@ Set `MODEL_*` and optionally `TTS_*` / `STT_*` in `apps/backend/.env` before `np
 | What | Location |
 |------|----------|
 | Backend `.env` | `apps/backend/.env` |
-| Generated audio | `audio/` at repo root or `%APPDATA%\PersonaAI\audio\` (cache, safe to delete) |
+| Generated audio | `apps/audio/` or `%APPDATA%\PersonaAI\audio\` (cache, safe to delete) |
 
 ## Folders you can delete locally
 
-- `audio/` — regenerated TTS cache only
+- `apps/audio/` — regenerated TTS cache only
 - `%APPDATA%\PersonaAI\audio\` — same cache in the desktop app
 
 ## First run checklist
